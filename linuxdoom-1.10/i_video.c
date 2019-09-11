@@ -29,11 +29,13 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
-#include <X11/Xlib.h>
+// TODO: COmmented out these 4
+/*#include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 
-#include <X11/extensions/XShm.h>
+#include <X11/extensions/XShm.h>*/
+
 // Had to dig up XShm.c for this one.
 // It is in the libXext, but not in the XFree86 headers.
 #ifdef LINUX
@@ -46,7 +48,8 @@ int XShmGetEventBase( Display* dpy ); // problems with g++?
 #include <sys/socket.h>
 
 #include <netinet/in.h>
-#include <errnos.h>
+// TODO: Commenting errnos.h
+// #include <errnos.h>
 #include <signal.h>
 
 #include "doomstat.h"
@@ -59,22 +62,25 @@ int XShmGetEventBase( Display* dpy ); // problems with g++?
 
 #define POINTER_WARP_COUNTDOWN	1
 
-Display*	X_display=0;
+// TODO Commenting
+/*Display*	X_display=0;
 Window		X_mainWindow;
 Colormap	X_cmap;
 Visual*		X_visual;
 GC		X_gc;
-XEvent		X_event;
+XEvent		X_event;*/
 int		X_screen;
-XVisualInfo	X_visualinfo;
-XImage*		image;
+// TODO COmmenting
+/*XVisualInfo	X_visualinfo;
+XImage*		image;*/
 int		X_width;
 int		X_height;
 
 // MIT SHared Memory extension.
 boolean		doShm;
 
-XShmSegmentInfo	X_shminfo;
+// TODO COmmenting
+// XShmSegmentInfo	X_shminfo;
 int		X_shmeventtype;
 
 // Fake mouse handling.
@@ -96,7 +102,7 @@ static int	multiply=1;
 
 int xlatekey(void)
 {
-
+/*
     int rc;
 
     switch(rc = XKeycodeToKeysym(X_display, X_event.xkey.keycode, 0))
@@ -158,11 +164,13 @@ int xlatekey(void)
     }
 
     return rc;
-
+*/
+return 0;
 }
 
 void I_ShutdownGraphics(void)
 {
+  /*
   // Detach from X server
   if (!XShmDetach(X_display, &X_shminfo))
 	    I_Error("XShmDetach() failed in I_ShutdownGraphics()");
@@ -173,6 +181,7 @@ void I_ShutdownGraphics(void)
 
   // Paranoia.
   image->data = NULL;
+   */
 }
 
 
@@ -193,7 +202,7 @@ boolean		shmFinished;
 
 void I_GetEvent(void)
 {
-
+/*
     event_t event;
 
     // put event-grabbing stuff in here
@@ -275,10 +284,10 @@ void I_GetEvent(void)
 	if (doShm && X_event.type == X_shmeventtype) shmFinished = true;
 	break;
     }
-
+*/
 }
 
-Cursor
+/*Cursor
 createnullcursor
 ( Display*	display,
   Window	root )
@@ -289,7 +298,7 @@ createnullcursor
     XColor dummycolour;
     Cursor cursor;
 
-    cursormask = XCreatePixmap(display, root, 1, 1, 1/*depth*/);
+    cursormask = XCreatePixmap(display, root, 1, 1, 1 (depth) );
     xgc.function = GXclear;
     gc =  XCreateGC(display, cursormask, GCFunction, &xgc);
     XFillRectangle(display, cursormask, gc, 0, 0, 1, 1);
@@ -302,13 +311,14 @@ createnullcursor
     XFreeGC(display,gc);
     return cursor;
 }
+*/
 
 //
 // I_StartTic
 //
 void I_StartTic (void)
 {
-
+/*
     if (!X_display)
 	return;
 
@@ -334,7 +344,7 @@ void I_StartTic (void)
     }
 
     mousemoved = false;
-
+*/
 }
 
 
@@ -351,7 +361,7 @@ void I_UpdateNoBlit (void)
 //
 void I_FinishUpdate (void)
 {
-
+/*
     static int	lasttic;
     int		tics;
     int		i;
@@ -517,7 +527,7 @@ void I_FinishUpdate (void)
 	XSync(X_display, False);
 
     }
-
+*/
 }
 
 
@@ -533,8 +543,9 @@ void I_ReadScreen (byte* scr)
 //
 // Palette stuff.
 //
-static XColor	colors[256];
+// static XColor	colors[256];
 
+/*
 void UploadNewPalette(Colormap cmap, byte *palette)
 {
 
@@ -575,13 +586,16 @@ void UploadNewPalette(Colormap cmap, byte *palette)
 
 	}
 }
+*/
 
 //
 // I_SetPalette
 //
 void I_SetPalette (byte* palette)
 {
+  /*
     UploadNewPalette(X_cmap, palette);
+    */
 }
 
 
@@ -592,6 +606,7 @@ void I_SetPalette (byte* palette)
 //  thus there might have been stale
 //  handles accumulating.
 //
+/*
 void grabsharedmemory(int size)
 {
 
@@ -688,10 +703,11 @@ void grabsharedmemory(int size)
   fprintf(stderr, "shared memory id=%d, addr=0x%x\n", id,
 	  (int) (image->data));
 }
+*/
 
 void I_InitGraphics(void)
 {
-
+/*
     char*		displayname;
     char*		d;
     int			n;
@@ -911,7 +927,7 @@ void I_InitGraphics(void)
 	screens[0] = (unsigned char *) (image->data);
     else
 	screens[0] = (unsigned char *) malloc (SCREENWIDTH * SCREENHEIGHT);
-
+*/
 }
 
 
