@@ -1,3 +1,5 @@
+add_definitions(-DNORMALUNIX)
+
 set(CPP_SOURCES
   am_map.c
   am_map.h
@@ -43,7 +45,6 @@ set(CPP_SOURCES
   i_video.h
   info.c
   info.h
-  ls.txt
   m_argv.c
   m_argv.h
   m_bbox.c
@@ -127,3 +128,7 @@ set(CPP_SOURCES
 )
 
 add_executable(doom ${CPP_SOURCES})
+# target_compile_options(doom PUBLIC -m32 -I/usr/local/opt/gcc/include)
+# target_link_options(doom PUBLIC -m32 -L/usr/local/opt/gcc/lib/gcc/9)
+# target_compile_options(doom PUBLIC -m32 -I/usr/local/opt/llvm/include)
+# target_link_options(doom PUBLIC -m32 -L/usr/local/opt/llvm/lib)
