@@ -461,8 +461,8 @@ void R_InitTranslationTables (void)
     int		i;
 	
     translationtables = Z_Malloc (256*3+255, PU_STATIC, 0);
-    translationtables = (byte *)(( (int)translationtables + 255 )& ~255);
-    
+    translationtables = (byte *)(( (uintptr_t)translationtables + 255 )& ~255);
+
     // translate just the 16 green colors
     for (i=0 ; i<256 ; i++)
     {
@@ -470,8 +470,8 @@ void R_InitTranslationTables (void)
 	{
 	    // map green ramp to gray, brown, red
 	    translationtables[i] = 0x60 + (i&0xf);
-	    translationtables [i+256] = 0x40 + (i&0xf);
-	    translationtables [i+512] = 0x20 + (i&0xf);
+	    translationtables[i+256] = 0x40 + (i&0xf);
+	    translationtables[i+512] = 0x20 + (i&0xf);
 	}
 	else
 	{

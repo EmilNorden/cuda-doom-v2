@@ -254,22 +254,16 @@ default_t	defaults[] =
 
 // UNIX hack, to be removed. 
 #ifdef SNDSERV
-// TODO Replaced this
     // {"sndserver", (int *) &sndserver_filename, (int) "sndserver"},
-    // TODO With this
-    {"sndserver", (int *) &sndserver_filename, 0},
+
     {"mb_used", &mb_used, 2},
 #endif
     
 #endif
 
 #ifdef LINUX
-    // TODO Replaced this
     // {"mousedev", (int*)&mousedev, (int)"/dev/ttyS0"},
     // {"mousetype", (int*)&mousetype, (int)"microsoft"},
-    // with this
-    {"mousedev", (int*)&mousedev, 0},
-    {"mousetype", (int*)&mousetype, 0},
 #endif
 
     {"use_mouse",&usemouse, 1},
