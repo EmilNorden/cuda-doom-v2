@@ -39,7 +39,8 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 // Had to dig up XShm.c for this one.
 // It is in the libXext, but not in the XFree86 headers.
 #ifdef LINUX
-int XShmGetEventBase( Display* dpy ); // problems with g++?
+// TODO Comment this
+// int XShmGetEventBase( Display* dpy ); // problems with g++?
 #endif
 
 #include <stdarg.h>

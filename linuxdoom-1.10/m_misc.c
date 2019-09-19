@@ -264,8 +264,12 @@ default_t	defaults[] =
 #endif
 
 #ifdef LINUX
-    {"mousedev", (int*)&mousedev, (int)"/dev/ttyS0"},
-    {"mousetype", (int*)&mousetype, (int)"microsoft"},
+    // TODO Replaced this
+    // {"mousedev", (int*)&mousedev, (int)"/dev/ttyS0"},
+    // {"mousetype", (int*)&mousetype, (int)"microsoft"},
+    // with this
+    {"mousedev", (int*)&mousedev, 0},
+    {"mousetype", (int*)&mousetype, 0},
 #endif
 
     {"use_mouse",&usemouse, 1},

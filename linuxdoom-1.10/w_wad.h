@@ -28,6 +28,7 @@
 #pragma interface
 #endif
 
+#include <stdint.h>
 
 //
 // TYPES

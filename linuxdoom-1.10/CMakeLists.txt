@@ -1,4 +1,5 @@
 add_definitions(-DNORMALUNIX)
+add_definitions(-DLINUX)
 
 set(CPP_SOURCES
   am_map.c
@@ -129,6 +130,7 @@ set(CPP_SOURCES
 
 add_executable(doom ${CPP_SOURCES})
 # target_compile_options(doom PUBLIC -m32 -I/usr/local/opt/gcc/include)
+target_link_libraries(doom m)
 # target_link_options(doom PUBLIC -m32 -L/usr/local/opt/gcc/lib/gcc/9)
 # target_compile_options(doom PUBLIC -m32 -I/usr/local/opt/llvm/include)
 # target_link_options(doom PUBLIC -m32 -L/usr/local/opt/llvm/lib)
