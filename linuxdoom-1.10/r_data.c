@@ -87,7 +87,12 @@ typedef struct
     boolean		masked;	
     short		width;
     short		height;
-    void		**columndirectory;	// OBSOLETE
+    // as the OBSOLETE comment hints at, the columndirectory field is no longer used
+    // however, the code relies on the struct being 32 bytes large, and when compiling 64 bit this
+    // field will be 8 bytes instead of 4, causing runtime errors.
+    // Therefor I replace it with a dummy integer
+    // void		**columndirectory;	// OBSOLETE
+    int dummy;
     short		patchcount;
     mappatch_t	patches[1];
 } maptexture_t;
@@ -501,7 +506,7 @@ void R_InitTextures (void)
     for (i = 0; i < temp3; i++)
 	printf("\x8");
     printf("\x8\x8\x8\x8\x8\x8\x8\x8\x8\x8");	
-	
+
     for (i=0 ; i<numtextures ; i++, directory++)
     {
 	if (!(i&63))

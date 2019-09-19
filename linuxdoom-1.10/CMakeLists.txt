@@ -1,5 +1,8 @@
 add_definitions(-DNORMALUNIX)
+
+if(UNIX AND NOT APPLE)
 add_definitions(-DLINUX)
+endif()
 
 set(CPP_SOURCES
   am_map.c
