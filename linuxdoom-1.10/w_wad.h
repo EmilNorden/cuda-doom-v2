@@ -69,13 +69,13 @@ extern	int		numlumps;
 void    W_InitMultipleFiles (char** filenames);
 void    W_Reload (void);
 
-int	W_CheckNumForName (char* name);
-int	W_GetNumForName (char* name);
+intptr_t W_CheckNumForName (char* name);
+intptr_t W_GetNumForName (char* name);
 
-int	W_LumpLength (int lump);
-void    W_ReadLump (int lump, void *dest);
+int	W_LumpLength (intptr_t lump);
+void    W_ReadLump (intptr_t lump, void *dest);
 
-void*	W_CacheLumpNum (int lump, int tag);
+void*	W_CacheLumpNum (intptr_t lump, int tag);
 void*	W_CacheLumpName (char* name, int tag);
 
 

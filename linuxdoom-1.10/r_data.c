@@ -103,7 +103,7 @@ typedef struct
     // for the internal origin of the patch.
     int		originx;	
     int		originy;
-    int		patch;
+    intptr_t	patch;
 } texpatch_t;
 
 
@@ -426,7 +426,7 @@ void R_InitTextures (void)
     char*		names;
     char*		name_p;
     
-    int*		patchlookup;
+    intptr_t*		patchlookup;
     
     int			totalwidth;
     int			nummappatches;
@@ -478,14 +478,15 @@ void R_InitTextures (void)
 	maxoff2 = 0;
     }
     numtextures = numtextures1 + numtextures2;
-	
-    textures = Z_Malloc (numtextures*4, PU_STATIC, 0);
-    texturecolumnlump = Z_Malloc (numtextures*4, PU_STATIC, 0);
-    texturecolumnofs = Z_Malloc (numtextures*4, PU_STATIC, 0);
-    texturecomposite = Z_Malloc (numtextures*4, PU_STATIC, 0);
-    texturecompositesize = Z_Malloc (numtextures*4, PU_STATIC, 0);
-    texturewidthmask = Z_Malloc (numtextures*4, PU_STATIC, 0);
-    textureheight = Z_Malloc (numtextures*4, PU_STATIC, 0);
+
+    //TODO: All these used to multiply by 4, pointer size assumption? Changing to sizeof(pointer type used)
+    textures = Z_Malloc (numtextures*sizeof(texture_t*), PU_STATIC, 0);
+    texturecolumnlump = Z_Malloc (numtextures*sizeof(short*), PU_STATIC, 0);
+    texturecolumnofs = Z_Malloc (numtextures*sizeof(unsigned short*), PU_STATIC, 0);
+    texturecomposite = Z_Malloc (numtextures*sizeof(byte*), PU_STATIC, 0);
+    texturecompositesize = Z_Malloc (numtextures*sizeof(int), PU_STATIC, 0);
+    texturewidthmask = Z_Malloc (numtextures*sizeof(int), PU_STATIC, 0);
+    textureheight = Z_Malloc (numtextures*sizeof(fixed_t), PU_STATIC, 0);
 
     totalwidth = 0;
     
@@ -539,14 +540,16 @@ void R_InitTextures (void)
 	    patch->originx = SHORT(mpatch->originx);
 	    patch->originy = SHORT(mpatch->originy);
 	    patch->patch = patchlookup[SHORT(mpatch->patch)];
-	    if (patch->patch == -1)
+            if (patch->patch == -1)
 	    {
 		I_Error ("R_InitTextures: Missing patch in texture %s",
 			 texture->name);
 	    }
-	}		
-	texturecolumnlump[i] = Z_Malloc (texture->width*2, PU_STATIC,0);
-	texturecolumnofs[i] = Z_Malloc (texture->width*2, PU_STATIC,0);
+	}
+
+	//TODO Replacing hardcoded '2' with sizeof(short*)
+	texturecolumnlump[i] = Z_Malloc (texture->width*sizeof(short*), PU_STATIC,0);
+	texturecolumnofs[i] = Z_Malloc (texture->width*sizeof(unsigned short*), PU_STATIC,0);
 
 	j = 1;
 	while (j*2 <= texture->width)

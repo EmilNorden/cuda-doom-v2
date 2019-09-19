@@ -348,7 +348,7 @@ int W_NumLumps (void)
 // Returns -1 if name not found.
 //
 
-int W_CheckNumForName (char* name)
+intptr_t W_CheckNumForName (char* name)
 {
     union {
 	char	s[9];
@@ -396,7 +396,7 @@ int W_CheckNumForName (char* name)
 // W_GetNumForName
 // Calls W_CheckNumForName, but bombs out if not found.
 //
-int W_GetNumForName (char* name)
+intptr_t W_GetNumForName (char* name)
 {
     int	i;
 
@@ -413,7 +413,7 @@ int W_GetNumForName (char* name)
 // W_LumpLength
 // Returns the buffer size needed to load the given lump.
 //
-int W_LumpLength (int lump)
+int W_LumpLength (intptr_t lump)
 {
     if (lump >= numlumps)
 	I_Error ("W_LumpLength: %i >= numlumps",lump);
@@ -430,7 +430,7 @@ int W_LumpLength (int lump)
 //
 void
 W_ReadLump
-( int		lump,
+( intptr_t		lump,
   void*		dest )
 {
     int		c;
@@ -474,12 +474,12 @@ W_ReadLump
 //
 void*
 W_CacheLumpNum
-( int		lump,
+( intptr_t		lump,
   int		tag )
 {
     byte*	ptr;
 
-    if ((unsigned)lump >= numlumps)
+    if (lump >= numlumps)
 	I_Error ("W_CacheLumpNum: %i >= numlumps",lump);
 		
     if (!lumpcache[lump])
