@@ -46,15 +46,20 @@ static const char *glsl_drawtex_vertshader_src =
 
 static const char *glsl_drawtex_fragshader_src =
         "#version 330 core\n"
-        "uniform sampler2D tex;\n"
+        "uniform usampler2D tex;\n"
+        "uniform usampler1D palette_tex;\n"
         "in vec3 ourColor;\n"
         "in vec2 ourTexCoord;\n"
         "out vec4 color;\n"
         "void main()\n"
         "{\n"
-        "   	vec4 c = texture(tex, ourTexCoord);\n"
-        "   	// color = vec4(ourColor, 1.0);\n"
-        "   	color = c;\n"
+        "   	//vec4 c = texture(tex, ourTexCoord);\n"
+        "       uvec4 index = texture(tex, ourTexCoord);\n"
+        "       float f = index.r;\n"
+        "       float f2 = f / 255.0;"
+        "       vec4 c = texture(palette_tex, f2);\n"
+        "   	// color = vec4(index.r, index.r, index.r, 255) / 255.0;\n"
+        "   	color = vec4(c.rgb, 255) / 255.0;\n"
         "}\n";
 
 
@@ -222,68 +227,6 @@ V_CopyRect
     }
 }
 
-
-//
-// V_DrawPatch
-// Masks a column based masked pic to the screen. 
-//
-/*void
-V_DrawPatch
-        (int x,
-         int y,
-         int scrn,
-         patch_t *patch) {
-
-    int count;
-    int col;
-    column_t *column;
-    byte *desttop;
-    byte *dest;
-    byte *source;
-    int w;
-
-    y -= SHORT(patch->topoffset);
-    x -= SHORT(patch->leftoffset);
-#ifdef RANGECHECK
-    if (x < 0
-        || x + SHORT(patch->width) > SCREENWIDTH
-        || y < 0
-        || y + SHORT(patch->height) > SCREENHEIGHT
-        || (unsigned) scrn > 4) {
-        fprintf(stderr, "Patch at %d,%d exceeds LFB\n", x, y);
-        // No I_Error abort - what is up with TNT.WAD?
-        fprintf(stderr, "V_DrawPatch: bad patch (ignored)\n");
-        return;
-    }
-#endif
-
-    if (!scrn)
-        V_MarkRect(x, y, SHORT(patch->width), SHORT(patch->height));
-
-    col = 0;
-    desttop = screens[scrn] + y * SCREENWIDTH + x;
-
-    w = SHORT(patch->width);
-
-    for (; col < w; x++, col++, desttop++) {
-        column = (column_t *) ((byte *) patch + LONG(patch->columnofs[col]));
-
-        // step through the posts in a column
-        while (column->topdelta != 0xff) {
-            source = (byte *) column + 3;
-            dest = desttop + column->topdelta * SCREENWIDTH;
-            count = column->length;
-
-            while (count--) {
-                *dest = *source++;
-                dest += SCREENWIDTH;
-            }
-            column = (column_t *) ((byte *) column + column->length
-                                   + 4);
-        }
-    }
-}*/
-
 void
 V_DrawPatch
         (int x,
@@ -312,43 +255,34 @@ V_DrawPatch
     }
 #endif
 
-    FIBITMAP *bmp = FreeImage_Allocate(patch->width, patch->height, 24, 0x0000FF, 0x00FF00, 0xFF0000);
+    /*FIBITMAP *bmp = FreeImage_Allocate(patch->width, patch->height, 24, 0x0000FF, 0x00FF00, 0xFF0000);
     if(!bmp) {
         I_Error("unable to create bitmap");
-    }
+    }*/
 
+    desttop = pixels + y * SCREENWIDTH + x;
 
-
-    desttop = pixels + (y * SCREENWIDTH * 4) + (x*4);
-
-    for (int patch_column = 0; patch_column < patch->width; ++patch_column, desttop += 4) {
-        //for (int patch_row = 0; patch_row < patch->width; ++patch_row) {
+    for (int patch_column = 0; patch_column < patch->width; ++patch_column, ++desttop) {
         column = (column_t *) ((byte *) patch + LONG(patch->columnofs[patch_column]));
 
         while (column->topdelta != 0xff) {
             source = (byte *) column + 3;
-            dest = desttop + column->topdelta * SCREENWIDTH * 4;
-            count = column->length;
+            int screen_x = x + patch_column;
 
-            while (count--) {
-                *dest = *source++;
-                dest += SCREENWIDTH * 4;
-                RGBQUAD quad;
-                quad.rgbBlue = *source;
-                quad.rgbGreen = 0;
-                quad.rgbRed = 0;
-                quad.rgbReserved = 255;
-                FreeImage_SetPixelColor(bmp, patch_column, count, &quad);
+            for (int patch_y = 0; patch_y < column->length; ++patch_y) {
+                int screen_y = y + column->topdelta + patch_y;
+                int index = screen_y * SCREENWIDTH + screen_x;
+                pixels[index] = *source++;
             }
+
             column = (column_t *) ((byte *) column + column->length
                                    + 4);
         }
-        //}
     }
 
-    FreeImage_Save(FIF_PNG, bmp, "./OUT_IMAGE.png", 0);
+    /*FreeImage_Save(FIF_PNG, bmp, "./OUT_IMAGE.png", 0);
 
-    FreeImage_Unload(bmp);
+    FreeImage_Unload(bmp);*/
 }
 
 //
@@ -550,10 +484,10 @@ V_GetBlock
 // QUAD GEOMETRY
 static GLfloat vertices[] = {
         // Positions          // Colors           // Texture Coords
-        1.0f, 1.0f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,  // Top Right
-        1.0f, -1.0f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,  // Bottom Right
-        -1.0f, -1.0f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,  // Bottom Left
-        -1.0f, 1.0f, 0.5f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f // Top Left
+        1.0f, 1.0f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,  // Top Right
+        1.0f, -1.0f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,  // Bottom Right
+        -1.0f, -1.0f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,  // Bottom Left
+        -1.0f, 1.0f, 0.5f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f // Top Left
 };
 // you can also put positions, colors and coordinates in seperate VBO's
 static GLuint indices[] = {  // Note that we start from 0!
@@ -682,13 +616,33 @@ GLuint create_frame_texture(int width, int height) {
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 320, 200, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, pixels);
     // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI_EXT, width, height, 0, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_BYTE, NULL);
+
+    check_for_gl_errors();
+
+    return texture;
+}
+
+GLuint create_palette_texture() {
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_1D, texture);
+    check_for_gl_errors();
+
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    check_for_gl_errors();
+
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB8UI, 256, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, current_palette);
 
     check_for_gl_errors();
 
@@ -711,21 +665,29 @@ void V_Init(void) {
 
     int width = 320;
     int height = 200;
-    int bpp = 4;
-    int pixels_len = width*height*bpp;
+    int pixels_len = width * height;
     pixels = malloc(pixels_len);
-
-    for(int xx = 0; xx < pixels_len; ++xx) {
-        pixels[xx] = 0xFF;
-    }
-
+    memset(pixels, 0x80, pixels_len);
 
     init_glfw_window(width, height);
     frame_texture = create_frame_texture(width, height);
+    palette_texture = create_palette_texture();
 
     vertex_shader = compile_shader(GL_VERTEX_SHADER, glsl_drawtex_vertshader_src);
     fragment_shader = compile_shader(GL_FRAGMENT_SHADER, glsl_drawtex_fragshader_src);
     shader_program = link_program(vertex_shader, fragment_shader);
+    check_for_gl_errors();
+}
+
+void V_UpdatePalette(byte *palette) {
+    memcpy(current_palette, palette, 256 * 3);
+    /*current_palette[0] = 255;
+    current_palette[1] = 0;
+    current_palette[2] = 255;*/
+
+    glBindTexture(GL_TEXTURE_1D, palette_texture);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB8UI, 256, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, current_palette);
+
     check_for_gl_errors();
 }
 
@@ -741,7 +703,7 @@ void update_frame_texture(void) {
                         pixels);*/
 
     glBindTexture(GL_TEXTURE_2D, frame_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 320, 200, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, pixels);
     // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI_EXT, 320, 200, 0, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_BYTE, pixels);
 
     check_for_gl_errors();
@@ -756,6 +718,10 @@ void V_Swap(void) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, frame_texture);
     glUniform1i(glGetUniformLocation(shader_program, "tex"), 0);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_1D, palette_texture);
+    glUniform1i(glGetUniformLocation(shader_program, "palette_tex"), 1);
 
     glBindVertexArray(VAO); // binding VAO automatically binds EBO
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);

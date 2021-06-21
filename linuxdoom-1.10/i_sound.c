@@ -668,7 +668,8 @@ void
 I_SubmitSound(void)
 {
   // Write it to DSP device.
-  write(audio_fd, mixbuffer, SAMPLECOUNT*BUFMUL);
+  // TODO: Commented this out
+  // write(audio_fd, mixbuffer, SAMPLECOUNT*BUFMUL);
 }
 
 
