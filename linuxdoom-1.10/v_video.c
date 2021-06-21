@@ -28,6 +28,36 @@ static const char
         rcsid[] = "$Id: v_video.c,v 1.5 1997/02/03 22:45:13 b1 Exp $";
 
 
+static const char *glsl_drawtex_vertshader_src =
+        "#version 330 core\n"
+        "layout (location = 0) in vec3 position;\n"
+        "layout (location = 1) in vec3 color;\n"
+        "layout (location = 2) in vec2 texCoord;\n"
+        "\n"
+        "out vec3 ourColor;\n"
+        "out vec2 ourTexCoord;\n"
+        "\n"
+        "void main()\n"
+        "{\n"
+        "	gl_Position = vec4(position, 1.0f);\n"
+        "	ourColor = color;\n"
+        "	ourTexCoord = texCoord;\n"
+        "}\n";
+
+static const char *glsl_drawtex_fragshader_src =
+        "#version 330 core\n"
+        "uniform sampler2D tex;\n"
+        "in vec3 ourColor;\n"
+        "in vec2 ourTexCoord;\n"
+        "out vec4 color;\n"
+        "void main()\n"
+        "{\n"
+        "   	vec4 c = texture(tex, ourTexCoord);\n"
+        "   	// color = vec4(ourColor, 1.0);\n"
+        "   	color = c;\n"
+        "}\n";
+
+
 #include "i_system.h"
 #include "r_local.h"
 
@@ -38,7 +68,10 @@ static const char
 #include "m_swap.h"
 
 #include "v_video.h"
-
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
+#include <stdlib.h>
+#include <FreeImage.h>
 
 // Each screen is [SCREENWIDTH*SCREENHEIGHT]; 
 byte *screens[5];
@@ -194,7 +227,7 @@ V_CopyRect
 // V_DrawPatch
 // Masks a column based masked pic to the screen. 
 //
-void
+/*void
 V_DrawPatch
         (int x,
          int y,
@@ -249,6 +282,73 @@ V_DrawPatch
                                    + 4);
         }
     }
+}*/
+
+void
+V_DrawPatch
+        (int x,
+         int y,
+         int scrn,
+         patch_t *patch) {
+
+    int count;
+    column_t *column;
+    byte *desttop;
+    byte *dest;
+    byte *source;
+
+    y -= SHORT(patch->topoffset);
+    x -= SHORT(patch->leftoffset);
+#ifdef RANGECHECK
+    if (x < 0
+        || x + SHORT(patch->width) > SCREENWIDTH
+        || y < 0
+        || y + SHORT(patch->height) > SCREENHEIGHT
+        || (unsigned) scrn > 4) {
+        fprintf(stderr, "Patch at %d,%d exceeds LFB\n", x, y);
+        // No I_Error abort - what is up with TNT.WAD?
+        fprintf(stderr, "V_DrawPatch: bad patch (ignored)\n");
+        return;
+    }
+#endif
+
+    FIBITMAP *bmp = FreeImage_Allocate(patch->width, patch->height, 24, 0x0000FF, 0x00FF00, 0xFF0000);
+    if(!bmp) {
+        I_Error("unable to create bitmap");
+    }
+
+
+
+    desttop = pixels + (y * SCREENWIDTH * 4) + (x*4);
+
+    for (int patch_column = 0; patch_column < patch->width; ++patch_column, desttop += 4) {
+        //for (int patch_row = 0; patch_row < patch->width; ++patch_row) {
+        column = (column_t *) ((byte *) patch + LONG(patch->columnofs[patch_column]));
+
+        while (column->topdelta != 0xff) {
+            source = (byte *) column + 3;
+            dest = desttop + column->topdelta * SCREENWIDTH * 4;
+            count = column->length;
+
+            while (count--) {
+                *dest = *source++;
+                dest += SCREENWIDTH * 4;
+                RGBQUAD quad;
+                quad.rgbBlue = *source;
+                quad.rgbGreen = 0;
+                quad.rgbRed = 0;
+                quad.rgbReserved = 255;
+                FreeImage_SetPixelColor(bmp, patch_column, count, &quad);
+            }
+            column = (column_t *) ((byte *) column + column->length
+                                   + 4);
+        }
+        //}
+    }
+
+    FreeImage_Save(FIF_PNG, bmp, "./OUT_IMAGE.png", 0);
+
+    FreeImage_Unload(bmp);
 }
 
 //
@@ -447,6 +547,153 @@ V_GetBlock
     }
 }
 
+// QUAD GEOMETRY
+static GLfloat vertices[] = {
+        // Positions          // Colors           // Texture Coords
+        1.0f, 1.0f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,  // Top Right
+        1.0f, -1.0f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,  // Bottom Right
+        -1.0f, -1.0f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,  // Bottom Left
+        -1.0f, 1.0f, 0.5f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f // Top Left
+};
+// you can also put positions, colors and coordinates in seperate VBO's
+static GLuint indices[] = {  // Note that we start from 0!
+        0, 1, 3,  // First Triangle
+        1, 2, 3   // Second Triangle
+};
+
+void check_for_gl_errors() {
+    while (1) {
+        const GLenum err = glGetError();
+        if (err == GL_NO_ERROR) {
+            break;
+        }
+
+        fprintf(stderr, "GL Error %s", gluErrorString(err));
+    }
+}
+
+static void init_glfw_window(int width, int height) {
+    if (!glfwInit()) {
+        I_Error("glfwInit failed");
+    }
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    window = glfwCreateWindow(width, height, "DOOM!", NULL, NULL);
+    if (!window) {
+        I_Error("Unable to create window!");
+    }
+
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);
+    // glfwSetKeyCallback(m_window, key_callback);
+    glewExperimental = GL_TRUE; // need this to enforce core profile
+    GLenum err = glewInit();
+    glGetError();
+    if (err != GLEW_OK) {
+        I_Error("glewInit failed: %s", glewGetErrorString(err));
+    }
+
+    glViewport(0, 0, width, height);
+
+    // Generate buffers
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    // Buffer setup
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // Position attribute (3 floats)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid *) 0);
+    glEnableVertexAttribArray(0);
+    // Color attribute (3 floats)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid *) (3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+    // Texture attribute (2 floats)
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid *) (6 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // Note that this is allowed, the call to glVertexAttribPointer registered VBO as the currently bound
+    // vertex buffer object so afterwards we can safely unbind
+    glBindVertexArray(0);
+
+    check_for_gl_errors();
+}
+
+GLuint link_program(GLuint vertex_shader, GLuint fragment_shader) {
+    // create empty program
+    GLuint program = glCreateProgram();
+    // try to attach all shaders
+    GLuint shaders[2] = {vertex_shader - fragment_shader};
+    glAttachShader(program, vertex_shader);
+    glAttachShader(program, fragment_shader);
+    // try to link program
+    glLinkProgram(program);
+    GLint is_linked = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &is_linked); // check if program linked
+    if (!is_linked) {
+
+        GLint infologLength = 0;
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, (GLint *) &infologLength);
+        char *infoLog = (char *) malloc(infologLength);
+        glGetProgramInfoLog(program, infologLength, NULL, infoLog); // will include terminate char
+        glDeleteProgram(program);
+        I_Error("Program compilation error: %s", infoLog);
+        free(infoLog);
+    }
+
+    return program;
+}
+
+GLuint compile_shader(GLenum shader_type, const char *source) {
+    GLuint shader = glCreateShader(shader_type);
+    glShaderSource(shader, 1, &source, NULL);
+    glCompileShader(shader);
+    // check if shader compiled
+    GLint compiled = 0;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+    if (!compiled) {
+
+        GLint infologLength = 0;
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infologLength);
+        char *infoLog = (char *) malloc(infologLength);
+        glGetShaderInfoLog(shader, infologLength, NULL, infoLog); // will include terminate char
+        glDeleteShader(shader);
+        I_Error("Shader compilation error: %s", infoLog);
+        free(infoLog);
+    }
+
+    return shader;
+}
+
+GLuint create_frame_texture(int width, int height) {
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 320, 200, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI_EXT, width, height, 0, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_BYTE, NULL);
+
+    check_for_gl_errors();
+
+    return texture;
+}
 
 //
 // V_Init
@@ -461,4 +708,60 @@ void V_Init(void) {
 
     for (i = 0; i < 4; i++)
         screens[i] = base + i * SCREENWIDTH * SCREENHEIGHT;
+
+    int width = 320;
+    int height = 200;
+    int bpp = 4;
+    int pixels_len = width*height*bpp;
+    pixels = malloc(pixels_len);
+
+    for(int xx = 0; xx < pixels_len; ++xx) {
+        pixels[xx] = 0xFF;
+    }
+
+
+    init_glfw_window(width, height);
+    frame_texture = create_frame_texture(width, height);
+
+    vertex_shader = compile_shader(GL_VERTEX_SHADER, glsl_drawtex_vertshader_src);
+    fragment_shader = compile_shader(GL_FRAGMENT_SHADER, glsl_drawtex_fragshader_src);
+    shader_program = link_program(vertex_shader, fragment_shader);
+    check_for_gl_errors();
+}
+
+void update_frame_texture(void) {
+    /*glTextureSubImage2D(frame_texture,
+                        0,
+                        0,
+                        0,
+                        320,
+                        200,
+                        GL_RGBA_INTEGER_EXT,
+                        GL_UNSIGNED_BYTE,
+                        pixels);*/
+
+    glBindTexture(GL_TEXTURE_2D, frame_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 320, 200, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI_EXT, 320, 200, 0, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_BYTE, pixels);
+
+    check_for_gl_errors();
+}
+
+void V_Swap(void) {
+    update_frame_texture();
+    glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glUseProgram(shader_program);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, frame_texture);
+    glUniform1i(glGetUniformLocation(shader_program, "tex"), 0);
+
+    glBindVertexArray(VAO); // binding VAO automatically binds EBO
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0); // unbind VAO
+
+    check_for_gl_errors();
+
+    glfwSwapBuffers(window);
 }

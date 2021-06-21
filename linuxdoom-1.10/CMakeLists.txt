@@ -1,5 +1,7 @@
 add_definitions(-DNORMALUNIX)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${doom_SOURCE_DIR}/cmake")
+
 if(UNIX AND NOT APPLE)
 add_definitions(-DLINUX)
 endif()
@@ -133,7 +135,23 @@ set(CPP_SOURCES
 
 add_executable(doom ${CPP_SOURCES})
 # target_compile_options(doom PUBLIC -m32 -I/usr/local/opt/gcc/include)
-target_link_libraries(doom m)
 # target_link_options(doom PUBLIC -m32 -L/usr/local/opt/gcc/lib/gcc/9)
 # target_compile_options(doom PUBLIC -m32 -I/usr/local/opt/llvm/include)
 # target_link_options(doom PUBLIC -m32 -L/usr/local/opt/llvm/lib)
+
+find_package(GLEW REQUIRED)
+find_package(OpenGL REQUIRED)
+find_package(glfw3 REQUIRED)
+find_package(FreeImage REQUIRED)
+
+target_link_libraries(doom
+        m
+        ${GLEW_LIBRARIES}
+        ${OPENGL_LIBRARIES}
+        ${FREEIMAGE_LIBRARIES}
+        glfw)
+
+target_include_directories(doom SYSTEM PRIVATE
+        ${GLEW_INCLUDE_DIRS}
+        ${OPENGL_INCLUDE_DIR}
+        ${FREEIMAGE_INCLUDE_DIRS})

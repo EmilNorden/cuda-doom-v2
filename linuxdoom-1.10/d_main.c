@@ -77,6 +77,8 @@ static const char rcsid[] = "$Id: d_main.c,v 1.8 1997/02/03 22:45:09 b1 Exp $";
 
 #include "d_main.h"
 
+#include <FreeImage.h>
+
 //
 // D-DoomLoop()
 // Not a globally visible function,
@@ -203,6 +205,9 @@ void D_Display(void) {
     boolean done;
     boolean wipe;
     boolean redrawsbar;
+
+    glfwPollEvents();
+    V_Swap();
 
     if (nodrawers)
         return;                    // for comparative timing / profiling
@@ -743,6 +748,8 @@ void FindResponseFile(void) {
 void D_DoomMain(void) {
     int p;
     char file[256];
+
+    FreeImage_Initialise(true);
 
     FindResponseFile();
 

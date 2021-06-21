@@ -594,6 +594,8 @@ void UploadNewPalette(Colormap cmap, byte *palette)
 //
 void I_SetPalette (byte* palette)
 {
+    int ff = 34;
+
   /*
     UploadNewPalette(X_cmap, palette);
     */

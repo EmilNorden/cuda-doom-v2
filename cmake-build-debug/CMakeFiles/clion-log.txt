@@ -1,0 +1,25 @@
+/home/emil/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/211.7442.42/bin/cmake/linux/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" /home/emil/code/DOOM
+CMake Warning (dev) at /home/emil/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/211.7442.42/bin/cmake/linux/share/cmake-3.19/Modules/FindOpenGL.cmake:293 (message):
+  Policy CMP0072 is not set: FindOpenGL prefers GLVND by default when
+  available.  Run "cmake --help-policy CMP0072" for policy details.  Use the
+  cmake_policy command to set the policy and suppress this warning.
+
+  FindOpenGL found both a legacy GL library:
+
+    OPENGL_gl_LIBRARY: /usr/lib/x86_64-linux-gnu/libGL.so
+
+  and GLVND libraries for OpenGL and GLX:
+
+    OPENGL_opengl_LIBRARY: /usr/lib/x86_64-linux-gnu/libOpenGL.so
+    OPENGL_glx_LIBRARY: /usr/lib/x86_64-linux-gnu/libGLX.so
+
+  OpenGL_GL_PREFERENCE has not been set to "GLVND" or "LEGACY", so for
+  compatibility with CMake 3.10 and below the legacy GL library will be used.
+Call Stack (most recent call first):
+  linuxdoom-1.10/CMakeLists.txt:143 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Found FreeImage: headers at /usr/include, libraries at  :: /usr/lib/x86_64-linux-gnu/libfreeimage.so
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/emil/code/DOOM/cmake-build-debug

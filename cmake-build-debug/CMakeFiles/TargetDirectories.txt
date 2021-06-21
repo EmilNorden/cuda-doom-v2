@@ -1,0 +1,5 @@
+/home/emil/code/DOOM/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/emil/code/DOOM/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/emil/code/DOOM/cmake-build-debug/linuxdoom-1.10/CMakeFiles/rebuild_cache.dir
+/home/emil/code/DOOM/cmake-build-debug/linuxdoom-1.10/CMakeFiles/edit_cache.dir
+/home/emil/code/DOOM/cmake-build-debug/linuxdoom-1.10/CMakeFiles/doom.dir

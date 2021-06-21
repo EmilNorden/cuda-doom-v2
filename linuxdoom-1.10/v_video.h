@@ -25,6 +25,8 @@
 #ifndef __V_VIDEO__
 #define __V_VIDEO__
 
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 #include "doomtype.h"
 
 #include "doomdef.h"
@@ -51,10 +53,18 @@ extern  int	dirtybox[4];
 extern	byte	gammatable[5][256];
 extern	int	usegamma;
 
+GLFWwindow *window;
+GLuint VBO, VAO, EBO;
+GLuint fragment_shader, vertex_shader, shader_program;
+GLuint frame_texture;
+GLubyte *pixels;
 
 
 // Allocates buffer screens, call before R_Init.
 void V_Init (void);
+
+// Present the back buffer on screen
+void V_Swap (void);
 
 
 void
