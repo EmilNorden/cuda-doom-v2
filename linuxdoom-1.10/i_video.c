@@ -342,18 +342,11 @@ void I_StartTic(void) {
 */
 }
 
-
-//
-// I_UpdateNoBlit
-//
-void I_UpdateNoBlit(void) {
-    // what is this?
-}
-
 //
 // I_FinishUpdate
 //
 void I_FinishUpdate(void) {
+    V_Swap();
 /*
     static int	lasttic;
     int		tics;

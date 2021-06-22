@@ -27,6 +27,9 @@
 #include "d_event.h"
 void D_PostEvent (event_t* ev);
 
+#include <sys/time.h>
+#include <time.h>
+
 static const char
         rcsid[] = "$Id: v_video.c,v 1.5 1997/02/03 22:45:13 b1 Exp $";
 
@@ -56,12 +59,8 @@ static const char *glsl_drawtex_fragshader_src =
         "out vec4 color;\n"
         "void main()\n"
         "{\n"
-        "   	//vec4 c = texture(tex, ourTexCoord);\n"
         "       uvec4 index = texture(tex, ourTexCoord);\n"
-        "       float f = index.r;\n"
-        "       float f2 = f / 255.0;"
-        "       vec4 c = texture(palette_tex, f2);\n"
-        "   	// color = vec4(index.r, index.r, index.r, 255) / 255.0;\n"
+        "       vec4 c = texture(palette_tex, float(index) / 255.0);\n"
         "   	color = vec4(c.rgb, 255) / 255.0;\n"
         "}\n";
 
@@ -425,7 +424,6 @@ V_DrawBlock
 #endif
 
     V_MarkRect(x, y, width, height);
-return;
     dest = pixels[scrn] + y * SCREENWIDTH + x;
 
     while (height--) {
@@ -512,16 +510,47 @@ int glfw_to_doom_key(int glfw_key) {
             return KEY_RCTRL;
         case GLFW_KEY_TAB:
             return KEY_TAB;
+        case GLFW_KEY_F1:
+            return KEY_F1;
+        case GLFW_KEY_F2:
+            return KEY_F2;
+        case GLFW_KEY_F3:
+            return KEY_F3;
+        case GLFW_KEY_F4:
+            return KEY_F4;
+        case GLFW_KEY_F5:
+            return KEY_F5;
+        case GLFW_KEY_F6:
+            return KEY_F6;
+        case GLFW_KEY_F7:
+            return KEY_F7;
+        case GLFW_KEY_F8:
+            return KEY_F8;
+        case GLFW_KEY_F9:
+            return KEY_F9;
+        case GLFW_KEY_F10:
+            return KEY_F10;
+        case GLFW_KEY_F11:
+            return KEY_F11;
+        case GLFW_KEY_F12:
+            return KEY_F12;
         default:
             return glfw_key + ('a' - 'A');
     }
 }
+
+void toggle_fullscreen();
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     event_t event;
 
     switch(action) {
         case GLFW_PRESS:
+            if(mods == GLFW_MOD_ALT && key == GLFW_KEY_ENTER) {
+                toggle_fullscreen();
+                return;
+            }
+            printf("key: %d mods: %d \n", key, mods);
             event.type = ev_keydown;
             event.data1 = glfw_to_doom_key(key);
             D_PostEvent(&event);
@@ -617,17 +646,39 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 */
 }
 
-static void init_glfw_window(int width, int height) {
+static void init_glfw() {
     if (!glfwInit()) {
         I_Error("glfwInit failed");
     }
+}
 
+static void init_glfw_window(boolean fullscreen) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    window = glfwCreateWindow(width, height, "DOOM!", NULL, NULL);
+    int width = SCREENWIDTH;
+    int height = SCREENHEIGHT;
+
+    GLFWmonitor* monitor = NULL;
+    if(fullscreen) {
+        int mon_count = -1;
+        GLFWmonitor **mon_list = glfwGetMonitors(&mon_count);
+
+        if (mon_count > 1)
+        {
+            monitor = mon_list[1];
+        }
+        else {
+            monitor = mon_list[0];
+        }
+
+        width = glfwGetVideoMode(monitor)->width;
+        height = glfwGetVideoMode(monitor)->height;
+    }
+
+    window = glfwCreateWindow(width, height, "DOOM!", monitor, NULL);
     if (!window) {
         I_Error("Unable to create window!");
     }
@@ -643,35 +694,6 @@ static void init_glfw_window(int width, int height) {
     }
 
     glViewport(0, 0, width, height);
-
-    // Generate buffers
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-
-    // Buffer setup
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    // Position attribute (3 floats)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid *) 0);
-    glEnableVertexAttribArray(0);
-    // Color attribute (3 floats)
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid *) (3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-    // Texture attribute (2 floats)
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid *) (6 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(2);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    // Note that this is allowed, the call to glVertexAttribPointer registered VBO as the currently bound
-    // vertex buffer object so afterwards we can safely unbind
-    glBindVertexArray(0);
 
     check_for_gl_errors();
 }
@@ -727,8 +749,8 @@ GLuint create_frame_texture(int width, int height) {
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
@@ -760,6 +782,51 @@ GLuint create_palette_texture() {
     return texture;
 }
 
+static void init_gl_buffers()
+{
+    // Generate buffers
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    // Buffer setup
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // Position attribute (3 floats)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid *) 0);
+    glEnableVertexAttribArray(0);
+    // Color attribute (3 floats)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid *) (3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+    // Texture attribute (2 floats)
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid *) (6 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // Note that this is allowed, the call to glVertexAttribPointer registered VBO as the currently bound
+    // vertex buffer object so afterwards we can safely unbind
+    glBindVertexArray(0);
+
+    check_for_gl_errors();
+}
+
+void init_gl_textures() {
+    frame_texture = create_frame_texture(SCREENWIDTH, SCREENHEIGHT);
+    palette_texture = create_palette_texture();
+}
+
+void init_gl_shaders() {
+    vertex_shader = compile_shader(GL_VERTEX_SHADER, glsl_drawtex_vertshader_src);
+    fragment_shader = compile_shader(GL_FRAGMENT_SHADER, glsl_drawtex_fragshader_src);
+    shader_program = link_program(vertex_shader, fragment_shader);
+}
+
 //
 // V_Init
 // 
@@ -777,23 +844,17 @@ void V_Init(void) {
         memset(pixels[i], 0x00, SCREENWIDTH * SCREENHEIGHT);
     }
 
+    init_glfw();
+    init_glfw_window(false);
+    init_gl_buffers();
+    init_gl_textures();
+    init_gl_shaders();
 
-    init_glfw_window(SCREENWIDTH, SCREENHEIGHT);
-    frame_texture = create_frame_texture(SCREENWIDTH, SCREENHEIGHT);
-    palette_texture = create_palette_texture();
-
-    vertex_shader = compile_shader(GL_VERTEX_SHADER, glsl_drawtex_vertshader_src);
-    fragment_shader = compile_shader(GL_FRAGMENT_SHADER, glsl_drawtex_fragshader_src);
-    shader_program = link_program(vertex_shader, fragment_shader);
     check_for_gl_errors();
 }
 
 void V_UpdatePalette(byte *palette) {
     memcpy(current_palette, palette, 256 * 3);
-    /*current_palette[0] = 255;
-    current_palette[1] = 0;
-    current_palette[2] = 255;*/
-
     glBindTexture(GL_TEXTURE_1D, palette_texture);
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB8UI, 256, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, current_palette);
 
@@ -839,4 +900,23 @@ void V_Swap(void) {
     check_for_gl_errors();
 
     glfwSwapBuffers(window);
+}
+
+void toggle_fullscreen() {
+    int wasFullscreen = glfwGetWindowMonitor(window) != NULL;
+    glfwDestroyWindow(window);
+
+    if (wasFullscreen)
+    {
+        init_glfw_window(false);
+    }
+    else {
+        init_glfw_window(true);
+    }
+
+    init_gl_buffers();
+    init_gl_textures();
+    init_gl_shaders();
+
+    check_for_gl_errors();
 }

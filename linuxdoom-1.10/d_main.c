@@ -207,7 +207,6 @@ void D_Display(void) {
     boolean redrawsbar;
 
     glfwPollEvents();
-    V_Swap();
 
     if (nodrawers)
         return;                    // for comparative timing / profiling
@@ -329,7 +328,6 @@ void D_Display(void) {
         } while (!tics);
         wipestart = nowtime;
         done = wipe_ScreenWipe(wipe_Melt, 0, 0, SCREENWIDTH, SCREENHEIGHT, tics);
-        I_UpdateNoBlit();
         M_Drawer();                            // menu is drawn even on top of wipes
         I_FinishUpdate();                      // page flip or blit buffer
     } while (!done);
