@@ -220,8 +220,8 @@ V_CopyRect
 #endif
     V_MarkRect(destx, desty, width, height);
 
-    src = screens[srcscrn] + SCREENWIDTH * srcy + srcx;
-    dest = screens[destscrn] + SCREENWIDTH * desty + destx;
+    src = pixels[srcscrn] + SCREENWIDTH * srcy + srcx;
+    dest = pixels[destscrn] + SCREENWIDTH * desty + destx;
 
     for (; height > 0; height--) {
         memcpy(dest, src, width);
@@ -264,7 +264,7 @@ V_DrawPatch
             for (int patch_y = 0; patch_y < column->length; ++patch_y) {
                 int screen_y = y + column->topdelta + patch_y;
                 int index = screen_y * SCREENWIDTH + screen_x;
-                pixels[index] = *source++;
+                pixels[scrn][index] = *source++;
             }
 
             column = (column_t *) ((byte *) column + column->length
@@ -425,8 +425,8 @@ V_DrawBlock
 #endif
 
     V_MarkRect(x, y, width, height);
-
-    dest = screens[scrn] + y * SCREENWIDTH + x;
+return;
+    dest = pixels[scrn] + y * SCREENWIDTH + x;
 
     while (height--) {
         memcpy(dest, src, width);
@@ -508,9 +508,12 @@ int glfw_to_doom_key(int glfw_key) {
             return KEY_ESCAPE;
         case GLFW_KEY_ENTER:
             return KEY_ENTER;
+        case GLFW_KEY_RIGHT_CONTROL:
+            return KEY_RCTRL;
+        case GLFW_KEY_TAB:
+            return KEY_TAB;
         default:
-            // TODO HANDLE MORE KEYS
-            return 0;
+            return glfw_key + ('a' - 'A');
     }
 }
 
@@ -766,19 +769,17 @@ void V_Init(void) {
 
     // stick these in low dos memory on PCs
 
-    base = I_AllocLow(SCREENWIDTH * SCREENHEIGHT * 4);
+    base = I_AllocLow(SCREENWIDTH * SCREENHEIGHT * 5);
 
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 4; i++) {
         screens[i] = base + i * SCREENWIDTH * SCREENHEIGHT;
+        pixels[i] = malloc(SCREENWIDTH * SCREENHEIGHT);
+        memset(pixels[i], 0x00, SCREENWIDTH * SCREENHEIGHT);
+    }
 
-    int width = 320;
-    int height = 200;
-    int pixels_len = width * height;
-    pixels = malloc(pixels_len);
-    memset(pixels, 0x80, pixels_len);
 
-    init_glfw_window(width, height);
-    frame_texture = create_frame_texture(width, height);
+    init_glfw_window(SCREENWIDTH, SCREENHEIGHT);
+    frame_texture = create_frame_texture(SCREENWIDTH, SCREENHEIGHT);
     palette_texture = create_palette_texture();
 
     vertex_shader = compile_shader(GL_VERTEX_SHADER, glsl_drawtex_vertshader_src);
@@ -811,7 +812,7 @@ void update_frame_texture(void) {
                         pixels);*/
 
     glBindTexture(GL_TEXTURE_2D, frame_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, pixels[0]);
     // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI_EXT, 320, 200, 0, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_BYTE, pixels);
 
     check_for_gl_errors();

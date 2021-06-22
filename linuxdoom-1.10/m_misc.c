@@ -509,7 +509,7 @@ void M_ScreenShot (void)
     char	lbmname[12];
     
     // munge planar buffer to linear
-    linear = screens[2];
+    linear = pixels[2];
     I_ReadScreen (linear);
     
     // find a file name to save it to

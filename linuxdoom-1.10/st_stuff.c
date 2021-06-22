@@ -502,6 +502,15 @@ void ST_refreshBackground(void) {
             V_DrawPatch(ST_FX, 0, BG, faceback);
 
         V_CopyRect(ST_X, 0, BG, ST_WIDTH, ST_HEIGHT, ST_X, ST_Y, FG);
+
+        // TODO: This could be rewritten to not do the CopyRect calls like so:
+
+          /*V_DrawPatch(ST_X, ST_Y, FG, sbar);
+            if (netgame)
+                V_DrawPatch(ST_FX, ST_Y, FG, faceback);
+*/
+
+
     }
 
 }
@@ -1364,5 +1373,5 @@ void ST_Stop(void) {
 void ST_Init(void) {
     veryfirsttime = 0;
     ST_loadData();
-    screens[4] = (byte *) Z_Malloc(ST_WIDTH * ST_HEIGHT, PU_STATIC, 0);
+    pixels[4] = (byte *) Z_Malloc(ST_WIDTH * ST_HEIGHT, PU_STATIC, 0);
 }

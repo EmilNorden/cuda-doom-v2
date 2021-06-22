@@ -44,21 +44,19 @@
 // Screen 0 is the screen updated by I_Update screen.
 // Screen 1 is an extra buffer.
 
-
-
-extern byte *screens[5];
-
 extern int dirtybox[4];
 
 extern byte gammatable[5][256];
 extern int usegamma;
+
+#define SCREEN_COUNT    5
 
 GLFWwindow *window;
 GLuint VBO, VAO, EBO;
 GLuint fragment_shader, vertex_shader, shader_program;
 GLuint frame_texture;
 GLuint palette_texture;
-GLubyte *pixels;
+GLubyte *pixels[SCREEN_COUNT];
 GLubyte current_palette[256 * 3];
 
 

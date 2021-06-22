@@ -461,7 +461,7 @@ void AM_initVariables(void)
     static event_t st_notify = { ev_keyup, AM_MSGENTERED };
 
     automapactive = true;
-    fb = screens[0];
+    fb = pixels[0];
 
     f_oldloc.x = MAXINT;
     amclock = 0;

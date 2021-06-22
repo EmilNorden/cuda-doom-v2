@@ -528,7 +528,7 @@ void I_FinishUpdate(void) {
 // I_ReadScreen
 //
 void I_ReadScreen(byte *scr) {
-    memcpy(scr, screens[0], SCREENWIDTH * SCREENHEIGHT);
+    memcpy(scr, pixels[0], SCREENWIDTH * SCREENHEIGHT);
 }
 
 
