@@ -258,9 +258,6 @@ void D_Display(void) {
             break;
     }
 
-    // draw buffered stuff to screen
-    I_UpdateNoBlit();
-
     // draw the view directly
     if (gamestate == GS_LEVEL && !automapactive && gametic)
         R_RenderPlayerView(&players[displayplayer]);
