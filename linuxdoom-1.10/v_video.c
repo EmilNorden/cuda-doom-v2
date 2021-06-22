@@ -23,6 +23,9 @@
 //
 //-----------------------------------------------------------------------------
 
+// TODO UGLY HACK, including this and forward declaring D_PostEvent just to be able to post glfw events
+#include "d_event.h"
+void D_PostEvent (event_t* ev);
 
 static const char
         rcsid[] = "$Id: v_video.c,v 1.5 1997/02/03 22:45:13 b1 Exp $";
@@ -234,10 +237,7 @@ V_DrawPatch
          int scrn,
          patch_t *patch) {
 
-    int count;
     column_t *column;
-    byte *desttop;
-    byte *dest;
     byte *source;
 
     y -= SHORT(patch->topoffset);
@@ -254,15 +254,7 @@ V_DrawPatch
         return;
     }
 #endif
-
-    /*FIBITMAP *bmp = FreeImage_Allocate(patch->width, patch->height, 24, 0x0000FF, 0x00FF00, 0xFF0000);
-    if(!bmp) {
-        I_Error("unable to create bitmap");
-    }*/
-
-    desttop = pixels + y * SCREENWIDTH + x;
-
-    for (int patch_column = 0; patch_column < patch->width; ++patch_column, ++desttop) {
+    for (int patch_column = 0; patch_column < patch->width; ++patch_column) {
         column = (column_t *) ((byte *) patch + LONG(patch->columnofs[patch_column]));
 
         while (column->topdelta != 0xff) {
@@ -279,10 +271,6 @@ V_DrawPatch
                                    + 4);
         }
     }
-
-    /*FreeImage_Save(FIF_PNG, bmp, "./OUT_IMAGE.png", 0);
-
-    FreeImage_Unload(bmp);*/
 }
 
 //
@@ -506,6 +494,126 @@ void check_for_gl_errors() {
     }
 }
 
+int glfw_to_doom_key(int glfw_key) {
+    switch(glfw_key) {
+        case GLFW_KEY_LEFT:
+            return KEY_LEFTARROW;
+        case GLFW_KEY_RIGHT:
+            return KEY_RIGHTARROW;
+        case GLFW_KEY_DOWN:
+            return KEY_DOWNARROW;
+        case GLFW_KEY_UP:
+            return KEY_UPARROW;
+        case GLFW_KEY_ESCAPE:
+            return KEY_ESCAPE;
+        case GLFW_KEY_ENTER:
+            return KEY_ENTER;
+        default:
+            // TODO HANDLE MORE KEYS
+            return 0;
+    }
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    event_t event;
+
+    switch(action) {
+        case GLFW_PRESS:
+            event.type = ev_keydown;
+            event.data1 = glfw_to_doom_key(key);
+            D_PostEvent(&event);
+            break;
+        case GLFW_RELEASE:
+            event.type = ev_keyup;
+            event.data1  = glfw_to_doom_key(key);
+            D_PostEvent(&event);
+            break;
+    }
+    /*
+    event_t event;
+
+    // put event-grabbing stuff in here
+    XNextEvent(X_display, &X_event);
+    switch (X_event.type)
+    {
+      case KeyPress:
+	event.type = ev_keydown;
+	event.data1 = xlatekey();
+	D_PostEvent(&event);
+	// fprintf(stderr, "k");
+	break;
+      case KeyRelease:
+	event.type = ev_keyup;
+	event.data1 = xlatekey();
+	D_PostEvent(&event);
+	// fprintf(stderr, "ku");
+	break;
+      case ButtonPress:
+	event.type = ev_mouse;
+	event.data1 =
+	    (X_event.xbutton.state & Button1Mask)
+	    | (X_event.xbutton.state & Button2Mask ? 2 : 0)
+	    | (X_event.xbutton.state & Button3Mask ? 4 : 0)
+	    | (X_event.xbutton.button == Button1)
+	    | (X_event.xbutton.button == Button2 ? 2 : 0)
+	    | (X_event.xbutton.button == Button3 ? 4 : 0);
+	event.data2 = event.data3 = 0;
+	D_PostEvent(&event);
+	// fprintf(stderr, "b");
+	break;
+      case ButtonRelease:
+	event.type = ev_mouse;
+	event.data1 =
+	    (X_event.xbutton.state & Button1Mask)
+	    | (X_event.xbutton.state & Button2Mask ? 2 : 0)
+	    | (X_event.xbutton.state & Button3Mask ? 4 : 0);
+	// suggest parentheses around arithmetic in operand of |
+	event.data1 =
+	    event.data1
+	    ^ (X_event.xbutton.button == Button1 ? 1 : 0)
+	    ^ (X_event.xbutton.button == Button2 ? 2 : 0)
+	    ^ (X_event.xbutton.button == Button3 ? 4 : 0);
+	event.data2 = event.data3 = 0;
+	D_PostEvent(&event);
+	// fprintf(stderr, "bu");
+	break;
+      case MotionNotify:
+	event.type = ev_mouse;
+	event.data1 =
+	    (X_event.xmotion.state & Button1Mask)
+	    | (X_event.xmotion.state & Button2Mask ? 2 : 0)
+	    | (X_event.xmotion.state & Button3Mask ? 4 : 0);
+	event.data2 = (X_event.xmotion.x - lastmousex) << 2;
+	event.data3 = (lastmousey - X_event.xmotion.y) << 2;
+
+	if (event.data2 || event.data3)
+	{
+	    lastmousex = X_event.xmotion.x;
+	    lastmousey = X_event.xmotion.y;
+	    if (X_event.xmotion.x != X_width/2 &&
+		X_event.xmotion.y != X_height/2)
+	    {
+		D_PostEvent(&event);
+		// fprintf(stderr, "m");
+		mousemoved = false;
+	    } else
+	    {
+		mousemoved = true;
+	    }
+	}
+	break;
+
+      case Expose:
+      case ConfigureNotify:
+	break;
+
+      default:
+	if (doShm && X_event.type == X_shmeventtype) shmFinished = true;
+	break;
+    }
+*/
+}
+
 static void init_glfw_window(int width, int height) {
     if (!glfwInit()) {
         I_Error("glfwInit failed");
@@ -523,7 +631,7 @@ static void init_glfw_window(int width, int height) {
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
-    // glfwSetKeyCallback(m_window, key_callback);
+    glfwSetKeyCallback(window, key_callback);
     glewExperimental = GL_TRUE; // need this to enforce core profile
     GLenum err = glewInit();
     glGetError();
