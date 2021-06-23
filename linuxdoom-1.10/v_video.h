@@ -25,8 +25,8 @@
 #ifndef __V_VIDEO__
 #define __V_VIDEO__
 
+#include <SDL2/SDL.h>
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
 #include "doomtype.h"
 
 #include "doomdef.h"
@@ -51,7 +51,8 @@ extern int usegamma;
 
 #define SCREEN_COUNT    5
 
-GLFWwindow *window;
+SDL_Window *window;
+SDL_GLContext gl_context;
 GLuint VBO, VAO, EBO;
 GLuint fragment_shader, vertex_shader, shader_program;
 GLuint frame_texture;

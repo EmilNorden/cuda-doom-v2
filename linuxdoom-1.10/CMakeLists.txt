@@ -141,19 +141,23 @@ add_executable(doom ${CPP_SOURCES})
 
 find_package(GLEW REQUIRED)
 find_package(OpenGL REQUIRED)
-find_package(glfw3 REQUIRED)
 find_package(FreeImage REQUIRED)
+find_package(SDL2 REQUIRED)
+find_package(SDL2_mixer REQUIRED)
 
 target_link_libraries(doom
         m
         ${GLEW_LIBRARIES}
         ${OPENGL_LIBRARIES}
         ${FREEIMAGE_LIBRARIES}
-        glfw
-        portaudio_static)
+        portaudio_static
+        ${SDL2_LIBRARIES}
+        ${SDL2_MIXER_LIBRARIES})
 
 target_include_directories(doom SYSTEM PRIVATE
         ${GLEW_INCLUDE_DIRS}
         ${OPENGL_INCLUDE_DIR}
         ${FREEIMAGE_INCLUDE_DIRS}
-        ../external/portaudio/include)
+        ../external/portaudio/include
+        ${SDL2_INCLUDE_DIRS}
+        ${SDL2_MIXER_INCLUDE_DIRS})

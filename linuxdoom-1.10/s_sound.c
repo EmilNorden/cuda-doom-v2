@@ -21,6 +21,8 @@
 //-----------------------------------------------------------------------------
 
 #include "portaudio.h"
+#include <SDL2/SDL.h>
+#include <SDL_mixer.h>
 
 static const char
         rcsid[] = "$Id: s_sound.c,v 1.6 1997/02/03 22:45:12 b1 Exp $";
@@ -190,14 +192,15 @@ void S_Init
 
     fprintf(stderr, "S_Init: default sfx volume %d\n", sfxVolume);
 
-    if(Pa_Initialize() != paNoError) {
-        I_Error("Could not initialize portaudio library!");
-    }
-
     for(int i = 0; i < MAX_ACTIVE_SOUNDS; ++i) {
         playing_streams[i].state = Closed;
     }
 
+    //Initialize SDL_mixer
+    if( Mix_OpenAudio( 11025, AUDIO_U8, 1, 512 ) < 0 )
+    {
+        I_Error( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
+    }
 
     // Whatever these did with DMX, these are rather dummies now.
     I_SetChannels();
@@ -328,6 +331,39 @@ static int playCallback( const void *inputBuffer, void *outputBuffer,
     return finished;
 }
 
+typedef struct playback_data{
+    unsigned int audio_length;
+    byte* audio_position;
+} playback_data_t;
+
+void  fill_audio(void *userdata, Uint8 *stream, int len)
+{
+    playback_data_t *playback_data = (playback_data_t*)userdata;
+    // SDL2 must first use SDL_memset () to set the data in the stream to 0
+    SDL_memset(stream, 0, len);
+    if (playback_data->audio_length == 0)		/*  Only  play  if  we  have  data  left  */
+    {
+        return;
+    }
+    len = (len > playback_data->audio_length ? playback_data->audio_length : len);	/*  Mix  as  much  data  as  possible  */
+
+    /**
+     * Function declaration: extern DECLSPEC void SDLCALL
+    *  SDL_MixAudio(Uint8 * dst, const Uint8 * src, Uint32 len, int volume);
+    *  This takes two audio buffers of the playing audio format and mixes
+    *  them, performing addition, volume adjustment, and overflow clipping.
+    *  The volume ranges from 0 - 128, and should be set to ::SDL_MIX_MAXVOLUME
+    *  for full audio volume.  Note this does not change hardware volume.
+    *  This is provided for convenience -- you can mix your own audio data.
+    *
+    *  #define SDL_MIX_MAXVOLUME 128
+    */
+
+    SDL_MixAudio(stream, playback_data->audio_position, len, SDL_MIX_MAXVOLUME);
+    playback_data->audio_position += len;
+    playback_data->audio_length -= len;
+}
+
 void
 S_StartSoundAtVolume
         (void *origin_p,
@@ -436,46 +472,13 @@ S_StartSoundAtVolume
         W_ReadLump(sfx->lumpnum, sfx->data);
     }
 
-    PaStreamParameters  outputParameters;
-
-    PaError             err = paNoError;
-
-    playing_sfx_stream_t *available_stream = NULL;
-    for(int i = 0; i < MAX_ACTIVE_SOUNDS; ++i) {
-        if(playing_streams[i].state == Closed) {
-            available_stream = &playing_streams[i];
-            break;
-        }
-        else if(playing_streams[i].state == Playing && !Pa_IsStreamActive(playing_streams[i].stream.stream)) {
-            available_stream = &playing_streams[i];
-            available_stream->state = Closed;
-            Pa_CloseStream(available_stream->stream.stream);
-        }
+    if(!sfx->chunk) {
+        sfx->chunk = Mix_QuickLoad_RAW(sfx->data, sfx->data_len);
     }
 
-    if(available_stream == NULL) {
-        // All streams are occupied? Theres alot of noise coming out of the speakers right now..
-        return;
-    }
+    Mix_PlayChannel(-1, sfx->chunk, 0);
 
-    available_stream->stream.sfx_data.maxFrameIndex = sfx->data_len / (NUM_CHANNELS*sizeof(SAMPLE));
-    available_stream->stream.sfx_data.frameIndex = 0;
-    available_stream->stream.sfx_data.recordedSamples=(SAMPLE*)sfx->data;
 
-    err = Pa_OpenDefaultStream(&available_stream->stream.stream, 0, 2, PA_SAMPLE_TYPE, SAMPLE_RATE, paFramesPerBufferUnspecified, playCallback, &available_stream->stream.sfx_data);
-
-    if(err != paNoError) {
-        I_Error("AAAADDDDDD");
-    }
-
-    if( available_stream->stream.stream )
-    {
-        err = Pa_StartStream( available_stream->stream.stream );
-        if( err != paNoError ) {
-            I_Error("vvvvv");
-        }
-        available_stream->state = Playing;
-    }
 
     return;
 

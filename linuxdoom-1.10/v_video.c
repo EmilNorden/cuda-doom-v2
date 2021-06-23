@@ -23,12 +23,9 @@
 //
 //-----------------------------------------------------------------------------
 
-// TODO UGLY HACK, including this and forward declaring D_PostEvent just to be able to post glfw events
-#include "d_event.h"
-void D_PostEvent (event_t* ev);
-
 #include <sys/time.h>
 #include <time.h>
+#include <SDL2/SDL.h>
 
 static const char
         rcsid[] = "$Id: v_video.c,v 1.5 1997/02/03 22:45:13 b1 Exp $";
@@ -76,7 +73,6 @@ static const char *glsl_drawtex_fragshader_src =
 
 #include "v_video.h"
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
 #include <stdlib.h>
 #include <FreeImage.h>
 
@@ -492,203 +488,24 @@ void check_for_gl_errors() {
     }
 }
 
-int glfw_to_doom_key(int glfw_key) {
-    switch(glfw_key) {
-        case GLFW_KEY_LEFT:
-            return KEY_LEFTARROW;
-        case GLFW_KEY_RIGHT:
-            return KEY_RIGHTARROW;
-        case GLFW_KEY_DOWN:
-            return KEY_DOWNARROW;
-        case GLFW_KEY_UP:
-            return KEY_UPARROW;
-        case GLFW_KEY_ESCAPE:
-            return KEY_ESCAPE;
-        case GLFW_KEY_ENTER:
-            return KEY_ENTER;
-        case GLFW_KEY_RIGHT_CONTROL:
-            return KEY_RCTRL;
-        case GLFW_KEY_TAB:
-            return KEY_TAB;
-        case GLFW_KEY_F1:
-            return KEY_F1;
-        case GLFW_KEY_F2:
-            return KEY_F2;
-        case GLFW_KEY_F3:
-            return KEY_F3;
-        case GLFW_KEY_F4:
-            return KEY_F4;
-        case GLFW_KEY_F5:
-            return KEY_F5;
-        case GLFW_KEY_F6:
-            return KEY_F6;
-        case GLFW_KEY_F7:
-            return KEY_F7;
-        case GLFW_KEY_F8:
-            return KEY_F8;
-        case GLFW_KEY_F9:
-            return KEY_F9;
-        case GLFW_KEY_F10:
-            return KEY_F10;
-        case GLFW_KEY_F11:
-            return KEY_F11;
-        case GLFW_KEY_F12:
-            return KEY_F12;
-        default:
-            if(glfw_key >= 'A' && glfw_key <= 'Z') {
-                return glfw_key + ('a' - 'A');
-            }
-            return glfw_key;
-    }
-}
-
-void toggle_fullscreen();
-
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    event_t event;
-
-    switch(action) {
-        case GLFW_PRESS:
-            if(mods == GLFW_MOD_ALT && key == GLFW_KEY_ENTER) {
-                toggle_fullscreen();
-                return;
-            }
-            printf("key: %d mods: %d \n", key, mods);
-            event.type = ev_keydown;
-            event.data1 = glfw_to_doom_key(key);
-            D_PostEvent(&event);
-            break;
-        case GLFW_RELEASE:
-            event.type = ev_keyup;
-            event.data1  = glfw_to_doom_key(key);
-            D_PostEvent(&event);
-            break;
-    }
-    /*
-    event_t event;
-
-    // put event-grabbing stuff in here
-    XNextEvent(X_display, &X_event);
-    switch (X_event.type)
-    {
-      case KeyPress:
-	event.type = ev_keydown;
-	event.data1 = xlatekey();
-	D_PostEvent(&event);
-	// fprintf(stderr, "k");
-	break;
-      case KeyRelease:
-	event.type = ev_keyup;
-	event.data1 = xlatekey();
-	D_PostEvent(&event);
-	// fprintf(stderr, "ku");
-	break;
-      case ButtonPress:
-	event.type = ev_mouse;
-	event.data1 =
-	    (X_event.xbutton.state & Button1Mask)
-	    | (X_event.xbutton.state & Button2Mask ? 2 : 0)
-	    | (X_event.xbutton.state & Button3Mask ? 4 : 0)
-	    | (X_event.xbutton.button == Button1)
-	    | (X_event.xbutton.button == Button2 ? 2 : 0)
-	    | (X_event.xbutton.button == Button3 ? 4 : 0);
-	event.data2 = event.data3 = 0;
-	D_PostEvent(&event);
-	// fprintf(stderr, "b");
-	break;
-      case ButtonRelease:
-	event.type = ev_mouse;
-	event.data1 =
-	    (X_event.xbutton.state & Button1Mask)
-	    | (X_event.xbutton.state & Button2Mask ? 2 : 0)
-	    | (X_event.xbutton.state & Button3Mask ? 4 : 0);
-	// suggest parentheses around arithmetic in operand of |
-	event.data1 =
-	    event.data1
-	    ^ (X_event.xbutton.button == Button1 ? 1 : 0)
-	    ^ (X_event.xbutton.button == Button2 ? 2 : 0)
-	    ^ (X_event.xbutton.button == Button3 ? 4 : 0);
-	event.data2 = event.data3 = 0;
-	D_PostEvent(&event);
-	// fprintf(stderr, "bu");
-	break;
-      case MotionNotify:
-	event.type = ev_mouse;
-	event.data1 =
-	    (X_event.xmotion.state & Button1Mask)
-	    | (X_event.xmotion.state & Button2Mask ? 2 : 0)
-	    | (X_event.xmotion.state & Button3Mask ? 4 : 0);
-	event.data2 = (X_event.xmotion.x - lastmousex) << 2;
-	event.data3 = (lastmousey - X_event.xmotion.y) << 2;
-
-	if (event.data2 || event.data3)
-	{
-	    lastmousex = X_event.xmotion.x;
-	    lastmousey = X_event.xmotion.y;
-	    if (X_event.xmotion.x != X_width/2 &&
-		X_event.xmotion.y != X_height/2)
-	    {
-		D_PostEvent(&event);
-		// fprintf(stderr, "m");
-		mousemoved = false;
-	    } else
-	    {
-		mousemoved = true;
-	    }
-	}
-	break;
-
-      case Expose:
-      case ConfigureNotify:
-	break;
-
-      default:
-	if (doShm && X_event.type == X_shmeventtype) shmFinished = true;
-	break;
-    }
-*/
-}
-
-static void init_glfw() {
-    if (!glfwInit()) {
-        I_Error("glfwInit failed");
-    }
-}
-
-static void init_glfw_window(boolean fullscreen) {
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+static void init_sdl_window(boolean fullscreen) {
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG, true);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
     int width = SCREENWIDTH;
     int height = SCREENHEIGHT;
 
-    GLFWmonitor* monitor = NULL;
-    if(fullscreen) {
-        int mon_count = -1;
-        GLFWmonitor **mon_list = glfwGetMonitors(&mon_count);
+    window = SDL_CreateWindow("DOOM!",
+                               SDL_WINDOWPOS_CENTERED,
+                               SDL_WINDOWPOS_CENTERED,
+                               width, height,
+                               SDL_WINDOW_OPENGL);
 
-        if (mon_count > 1)
-        {
-            monitor = mon_list[1];
-        }
-        else {
-            monitor = mon_list[0];
-        }
+    gl_context = SDL_GL_CreateContext(window);
+    SDL_GL_SetSwapInterval(1);
 
-        width = glfwGetVideoMode(monitor)->width;
-        height = glfwGetVideoMode(monitor)->height;
-    }
-
-    window = glfwCreateWindow(width, height, "DOOM!", monitor, NULL);
-    if (!window) {
-        I_Error("Unable to create window!");
-    }
-
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);
-    glfwSetKeyCallback(window, key_callback);
     glewExperimental = GL_TRUE; // need this to enforce core profile
     GLenum err = glewInit();
     glGetError();
@@ -847,8 +664,11 @@ void V_Init(void) {
         memset(pixels[i], 0x00, SCREENWIDTH * SCREENHEIGHT);
     }
 
-    init_glfw();
-    init_glfw_window(false);
+    if(SDL_Init(SDL_INIT_EVERYTHING) < 0) {
+        I_Error("Unable to initialize SDL");
+    }
+
+    init_sdl_window(false);
     init_gl_buffers();
     init_gl_textures();
     init_gl_shaders();
@@ -902,19 +722,19 @@ void V_Swap(void) {
 
     check_for_gl_errors();
 
-    glfwSwapBuffers(window);
+    SDL_GL_SwapWindow(window);
+
 }
 
 void toggle_fullscreen() {
-    int wasFullscreen = glfwGetWindowMonitor(window) != NULL;
-    glfwDestroyWindow(window);
+    int wasFullscreen = false;
 
     if (wasFullscreen)
     {
-        init_glfw_window(false);
+        init_sdl_window(false);
     }
     else {
-        init_glfw_window(true);
+        init_sdl_window(true);
     }
 
     init_gl_buffers();

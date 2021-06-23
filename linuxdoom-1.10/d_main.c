@@ -191,6 +191,72 @@ extern int showMessages;
 
 void R_ExecuteSetViewSize(void);
 
+int sdl_to_doom_key(SDL_Keycode key) {
+    switch(key) {
+        case SDLK_LEFT:
+            return KEY_LEFTARROW;
+        case SDLK_RIGHT:
+            return KEY_RIGHTARROW;
+        case SDLK_DOWN:
+            return KEY_DOWNARROW;
+        case SDLK_UP:
+            return KEY_UPARROW;
+        case SDLK_ESCAPE:
+            return KEY_ESCAPE;
+        case SDLK_RETURN:
+            return KEY_ENTER;
+        case SDLK_RCTRL:
+            return KEY_RCTRL;
+        case SDLK_TAB:
+            return KEY_TAB;
+        case SDLK_F1:
+            return KEY_F1;
+        case SDLK_F2:
+            return KEY_F2;
+        case SDLK_F3:
+            return KEY_F3;
+        case SDLK_F4:
+            return KEY_F4;
+        case SDLK_F5:
+            return KEY_F5;
+        case SDLK_F6:
+            return KEY_F6;
+        case SDLK_F7:
+            return KEY_F7;
+        case SDLK_F8:
+            return KEY_F8;
+        case SDLK_F9:
+            return KEY_F9;
+        case SDLK_F10:
+            return KEY_F10;
+        case SDLK_F11:
+            return KEY_F11;
+        case SDLK_F12:
+            return KEY_F12;
+        default:
+            if(key >= 'A' && key <= 'Z') {
+                return key + ('a' - 'A');
+            }
+            return key;
+    }
+}
+
+void handle_keydown(SDL_Keycode key){
+    event_t event;
+
+    event.type = ev_keydown;
+    event.data1 = sdl_to_doom_key(key);
+    D_PostEvent(&event);
+}
+
+void handle_keyup(SDL_Keycode key){
+    event_t event;
+
+    event.type = ev_keyup;
+    event.data1 = sdl_to_doom_key(key);
+    D_PostEvent(&event);
+}
+
 void D_Display(void) {
     static boolean viewactivestate = false;
     static boolean menuactivestate = false;
@@ -206,7 +272,15 @@ void D_Display(void) {
     boolean wipe;
     boolean redrawsbar;
 
-    glfwPollEvents();
+    SDL_Event event;
+    while(SDL_PollEvent(&event)) {
+            if(event.type == SDL_KEYDOWN) {
+                handle_keydown(event.key.keysym.sym);
+            }
+            else if(event.type == SDL_KEYUP) {
+                handle_keyup(event.key.keysym.sym);
+            }
+    }
 
     if (nodrawers)
         return;                    // for comparative timing / profiling
@@ -743,8 +817,6 @@ void FindResponseFile(void) {
 void D_DoomMain(void) {
     int p;
     char file[256];
-
-    FreeImage_Initialise(true);
 
     FindResponseFile();
 

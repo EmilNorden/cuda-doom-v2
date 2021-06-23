@@ -29,6 +29,8 @@
 //
 typedef struct sfxinfo_struct	sfxinfo_t;
 
+struct Mix_Chunk;
+
 struct sfxinfo_struct
 {
     // up to 6-character name
@@ -55,13 +57,18 @@ struct sfxinfo_struct
     // sound data length
     int data_len;
 
+
+
     // this is checked every second to see if sound
     // can be thrown out (if 0, then decrement, if -1,
     // then throw out, if > 0, then it is in use)
     int		usefulness;
 
     // lump number of sfx
-    int		lumpnum;		
+    int		lumpnum;
+
+    // Raw loaded data
+    struct Mix_Chunk *chunk;
 };
 
 

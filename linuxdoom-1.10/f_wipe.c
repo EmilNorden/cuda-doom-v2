@@ -255,7 +255,6 @@ wipe_ScreenWipe
 
     // initial stuff
     if (!go) {
-        printf("WIPE START\n");
         go = 1;
         // wipe_scr = (byte *) Z_Malloc(width*height, PU_STATIC, 0); // DEBUG
         wipe_scr = pixels[0];
@@ -269,12 +268,8 @@ wipe_ScreenWipe
 
     // final stuff
     if (rc) {
-        printf("WIPE END\n");
         go = 0;
         (*wipes[wipeno * 3 + 2])(width, height, ticks);
-    }
-    else {
-        printf("WIPE %d %d\n", width, height);
     }
 
     return !go;
