@@ -241,7 +241,11 @@ int sdl_to_doom_key(SDL_Keycode key) {
     }
 }
 
-void handle_keydown(SDL_Keycode key){
+void handle_keydown(SDL_Keycode key, SDL_Keymod modifiers){
+    if(modifiers == KMOD_LALT && key == SDLK_RETURN) {
+        V_ToggleFullScreen();
+        return;
+    }
     event_t event;
 
     event.type = ev_keydown;
@@ -275,7 +279,7 @@ void D_Display(void) {
     SDL_Event event;
     while(SDL_PollEvent(&event)) {
             if(event.type == SDL_KEYDOWN) {
-                handle_keydown(event.key.keysym.sym);
+                handle_keydown(event.key.keysym.sym, event.key.keysym.mod);
             }
             else if(event.type == SDL_KEYUP) {
                 handle_keyup(event.key.keysym.sym);

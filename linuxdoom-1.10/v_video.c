@@ -497,11 +497,23 @@ static void init_sdl_window(boolean fullscreen) {
     int width = SCREENWIDTH;
     int height = SCREENHEIGHT;
 
+    int flags = SDL_WINDOW_OPENGL;
+
+    if(fullscreen == true) {
+        flags |= SDL_WINDOW_FULLSCREEN;
+        int display_count = SDL_GetNumVideoDisplays();
+
+        SDL_DisplayMode mode;
+        SDL_GetCurrentDisplayMode(0, &mode);
+        width = mode.w;
+        height = mode.h;
+    }
+
     window = SDL_CreateWindow("DOOM!",
                                SDL_WINDOWPOS_CENTERED,
                                SDL_WINDOWPOS_CENTERED,
                                width, height,
-                               SDL_WINDOW_OPENGL);
+                               flags);
 
     gl_context = SDL_GL_CreateContext(window);
     SDL_GL_SetSwapInterval(1);
@@ -726,17 +738,14 @@ void V_Swap(void) {
 
 }
 
-void toggle_fullscreen() {
-    int wasFullscreen = false;
+void V_ToggleFullScreen() {
+    Uint32 fullscreen_flag = SDL_WINDOW_FULLSCREEN;
+    unsigned int is_fullscreen = SDL_GetWindowFlags(window) & fullscreen_flag;
 
-    if (wasFullscreen)
-    {
-        init_sdl_window(false);
-    }
-    else {
-        init_sdl_window(true);
-    }
+    SDL_DestroyWindow(window);
+    init_sdl_window(is_fullscreen ? false : true);
 
+    // TODO Cleanup buffers before recreating them
     init_gl_buffers();
     init_gl_textures();
     init_gl_shaders();

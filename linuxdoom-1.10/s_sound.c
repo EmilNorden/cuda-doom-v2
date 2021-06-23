@@ -44,6 +44,7 @@ static const char
 #include "p_local.h"
 
 #include "doomstat.h"
+#include "custom_mix_pitch.h"
 
 
 // Purpose?
@@ -90,35 +91,6 @@ extern int snd_SfxDevice;
 extern int snd_DesiredMusicDevice;
 extern int snd_DesiredSfxDevice;
 
-#define SAMPLE_RATE  (11025)
-#define NUM_CHANNELS    (2)
-
-#define PA_SAMPLE_TYPE  paUInt8
-typedef byte SAMPLE;
-
-typedef struct
-{
-    int          frameIndex;  /* Index into sample array. */
-    int          maxFrameIndex;
-    SAMPLE      *recordedSamples;
-} paTestData;
-
-typedef struct
-{
-    PaStream *stream;
-    paTestData sfx_data;
-} sfx_stream_t;
-
-typedef enum { Closed, Playing } stream_state;
-
-typedef struct playing_sfx_stream
-{
-    stream_state state;
-    sfx_stream_t stream;
-} playing_sfx_stream_t;
-
-#define MAX_ACTIVE_SOUNDS       16
-static playing_sfx_stream_t playing_streams[MAX_ACTIVE_SOUNDS];
 
 typedef struct {
     // sound information (if null, channel avail.)
@@ -192,12 +164,8 @@ void S_Init
 
     fprintf(stderr, "S_Init: default sfx volume %d\n", sfxVolume);
 
-    for(int i = 0; i < MAX_ACTIVE_SOUNDS; ++i) {
-        playing_streams[i].state = Closed;
-    }
-
     //Initialize SDL_mixer
-    if( Mix_OpenAudio( 11025, AUDIO_U8, 1, 512 ) < 0 )
+    if( Mix_OpenAudio( 11025, AUDIO_U8, 2, 512 ) < 0 )
     {
         I_Error( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
     }
@@ -279,89 +247,20 @@ void S_Start(void) {
     nextcleanup = 15;
 }
 
-/* This routine will be called by the PortAudio engine when audio is needed.
-** It may be called at interrupt level on some machines so don't do anything
-** that could mess up the system like calling malloc() or free().
-*/
-static int playCallback( const void *inputBuffer, void *outputBuffer,
-                         unsigned long framesPerBuffer,
-                         const PaStreamCallbackTimeInfo* timeInfo,
-                         PaStreamCallbackFlags statusFlags,
-                         void *userData )
-{
-    paTestData *data = (paTestData*)userData;
-
-    SAMPLE *rptr = &data->recordedSamples[data->frameIndex * NUM_CHANNELS];
-    SAMPLE *wptr = (SAMPLE*)outputBuffer;
-    unsigned int i;
-    int finished;
-    unsigned int framesLeft = data->maxFrameIndex - data->frameIndex;
-
-    (void) inputBuffer; /* Prevent unused variable warnings. */
-    (void) timeInfo;
-    (void) statusFlags;
-    (void) userData;
-
-    if( framesLeft < framesPerBuffer )
-    {
-        /* final buffer... */
-        for( i=0; i<framesLeft; i++ )
-        {
-            *wptr++ = *rptr++;  /* left */
-            if( NUM_CHANNELS == 2 ) *wptr++ = *rptr++;  /* right */
-        }
-        for( ; i<framesPerBuffer; i++ )
-        {
-            *wptr++ = 0;  /* left */
-            if( NUM_CHANNELS == 2 ) *wptr++ = *rptr++;  /* right */
-        }
-        data->frameIndex += framesLeft;
-        finished = paComplete;
+static void ConvertMonoToStereo(sfxinfo_t* sfx) {
+    int new_data_len = sfx->data_len * 2;
+    byte* new_data = malloc(new_data_len);
+    byte* write_ptr = new_data;
+    byte* read_ptr = (byte*)sfx->data;
+    for(int i = 0; i < sfx->data_len; ++i) {
+        *write_ptr++ = read_ptr[i];
+        *write_ptr++ = read_ptr[i];
     }
-    else
-    {
-        for( i=0; i<framesPerBuffer; i++ )
-        {
-            *wptr++ = *rptr++;  /* left */
-            if( NUM_CHANNELS == 2 ) *wptr++ = *rptr++;  /* right */
-        }
-        data->frameIndex += framesPerBuffer;
-        finished = paContinue;
-    }
-    return finished;
-}
 
-typedef struct playback_data{
-    unsigned int audio_length;
-    byte* audio_position;
-} playback_data_t;
+    free(sfx->data);
 
-void  fill_audio(void *userdata, Uint8 *stream, int len)
-{
-    playback_data_t *playback_data = (playback_data_t*)userdata;
-    // SDL2 must first use SDL_memset () to set the data in the stream to 0
-    SDL_memset(stream, 0, len);
-    if (playback_data->audio_length == 0)		/*  Only  play  if  we  have  data  left  */
-    {
-        return;
-    }
-    len = (len > playback_data->audio_length ? playback_data->audio_length : len);	/*  Mix  as  much  data  as  possible  */
-
-    /**
-     * Function declaration: extern DECLSPEC void SDLCALL
-    *  SDL_MixAudio(Uint8 * dst, const Uint8 * src, Uint32 len, int volume);
-    *  This takes two audio buffers of the playing audio format and mixes
-    *  them, performing addition, volume adjustment, and overflow clipping.
-    *  The volume ranges from 0 - 128, and should be set to ::SDL_MIX_MAXVOLUME
-    *  for full audio volume.  Note this does not change hardware volume.
-    *  This is provided for convenience -- you can mix your own audio data.
-    *
-    *  #define SDL_MIX_MAXVOLUME 128
-    */
-
-    SDL_MixAudio(stream, playback_data->audio_position, len, SDL_MIX_MAXVOLUME);
-    playback_data->audio_position += len;
-    playback_data->audio_length -= len;
+    sfx->data = new_data;
+    sfx->data_len = new_data_len;
 }
 
 void
@@ -369,7 +268,6 @@ S_StartSoundAtVolume
         (void *origin_p,
          int sfx_id,
          int volume) {
-
     int rc;
     int sep;
     int pitch;
@@ -390,6 +288,7 @@ S_StartSoundAtVolume
         I_Error("Bad sfx #: %d", sfx_id);
 
     sfx = &S_sfx[sfx_id];
+
 
     // Initialize sound parameters
     if (sfx->link) {
@@ -428,6 +327,11 @@ S_StartSoundAtVolume
         sep = NORM_SEP;
     }
 
+
+    if(strcmp("shotgn", sfx->name) == 0) {
+        printf("shotgun at sep: %d vol: %d pitch %d\n", sep, volume, pitch);
+    }
+
     // hacks to vary the sfx pitches
     if (sfx_id >= sfx_sawup
         && sfx_id <= sfx_sawhit) {
@@ -448,13 +352,8 @@ S_StartSoundAtVolume
     }
 
     // kill old sound
-    S_StopSound(origin);
-
-    // try to find a channel
-    cnum = S_getChannel(origin, sfx);
-
-    if (cnum < 0)
-        return;
+    // TODO: Not sure what this is, im commenting it out until i find out
+    // S_StopSound(origin);
 
     //
     // This is supposed to handle the loading/caching.
@@ -463,52 +362,29 @@ S_StartSoundAtVolume
     //
 
     // get lumpnum if necessary
-    if (sfx->lumpnum < 0)
+    if (sfx->lumpnum < 0) {
         sfx->lumpnum = I_GetSfxLumpNum(sfx);
+    }
 
     if(!sfx->data) {
         sfx->data_len = W_LumpLength(sfx->lumpnum);
-        sfx->data = malloc(sfx->data_len); // TODO Rewrite this to use Z_Malloc? Find out how it is normally allocated (by searching usages on data field?)
+        sfx->data = malloc(sfx->data_len);
         W_ReadLump(sfx->lumpnum, sfx->data);
+
+        ConvertMonoToStereo(sfx);
     }
 
     if(!sfx->chunk) {
         sfx->chunk = Mix_QuickLoad_RAW(sfx->data, sfx->data_len);
     }
 
-    Mix_PlayChannel(-1, sfx->chunk, 0);
+    // I think DOOM volumes ranges from 0-15, whereas SDL Mixer volume ranges from 0-128. So I transform the ranges.
+    Mix_VolumeChunk(sfx->chunk, (int)((volume / 15.0) * 128));
 
+    int channel = Mix_PlayChannel(-1, sfx->chunk, 0);
+    // Custom_Mix_RegisterPlaybackSpeedEffect(channel, sfx->chunk, 2.0f, 0);
+    Mix_SetPanning(channel, 255 - sep, sep);
 
-
-    return;
-
-#ifndef SNDSRV
-    // cache data if necessary
-    if (!sfx->data) {
-        fprintf(stderr,
-                "S_StartSoundAtVolume: 16bit and not pre-cached - wtf?\n");
-
-        // DOS remains, 8bit handling
-        //sfx->data = (void *) W_CacheLumpNum(sfx->lumpnum, PU_MUSIC);
-        // fprintf( stderr,
-        //	     "S_StartSoundAtVolume: loading %d (lump %d) : 0x%x\n",
-        //       sfx_id, sfx->lumpnum, (int)sfx->data );
-
-    }
-#endif
-
-    // increase the usefulness
-    if (sfx->usefulness++ < 0)
-        sfx->usefulness = 1;
-
-    // Assigns the handle to one of the channels in the
-    //  mix/output buffer.
-    channels[cnum].handle = I_StartSound(sfx_id,
-            /*sfx->data,*/
-                                         volume,
-                                         sep,
-                                         pitch,
-                                         priority);
 }
 
 void

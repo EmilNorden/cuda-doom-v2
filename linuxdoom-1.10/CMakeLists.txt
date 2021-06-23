@@ -9,6 +9,9 @@ endif()
 set(CPP_SOURCES
   am_map.c
   am_map.h
+  custom_mix_pitch.c
+  custom_mix_pitch.h
+  custom_mix_pitch_callback.h
   d_englsh.h
   d_event.h
   d_french.h

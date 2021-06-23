@@ -126,6 +126,9 @@ void
 V_UpdatePalette(
         byte* palette);
 
+void
+V_ToggleFullScreen();
+
 #endif
 //-----------------------------------------------------------------------------
 //
