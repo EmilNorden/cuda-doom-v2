@@ -535,7 +535,10 @@ int glfw_to_doom_key(int glfw_key) {
         case GLFW_KEY_F12:
             return KEY_F12;
         default:
-            return glfw_key + ('a' - 'A');
+            if(glfw_key >= 'A' && glfw_key <= 'Z') {
+                return glfw_key + ('a' - 'A');
+            }
+            return glfw_key;
     }
 }
 

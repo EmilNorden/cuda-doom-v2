@@ -406,7 +406,7 @@ R_GetColumn
 }
 
 
-
+#include <errno.h>
 
 //
 // R_InitTextures

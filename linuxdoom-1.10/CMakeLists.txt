@@ -149,9 +149,11 @@ target_link_libraries(doom
         ${GLEW_LIBRARIES}
         ${OPENGL_LIBRARIES}
         ${FREEIMAGE_LIBRARIES}
-        glfw)
+        glfw
+        portaudio_static)
 
 target_include_directories(doom SYSTEM PRIVATE
         ${GLEW_INCLUDE_DIRS}
         ${OPENGL_INCLUDE_DIR}
-        ${FREEIMAGE_INCLUDE_DIRS})
+        ${FREEIMAGE_INCLUDE_DIRS}
+        ../external/portaudio/include)
