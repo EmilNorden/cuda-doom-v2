@@ -23,6 +23,7 @@
 #ifndef __S_SOUND__
 #define __S_SOUND__
 
+#include "doomtype.h"
 
 #ifdef __GNUG__
 #pragma interface
@@ -82,7 +83,7 @@ void S_StartMusic(int music_id);
 void
 S_ChangeMusic
 ( int		music_id,
-  int		looping );
+  boolean		looping );
 
 // Stops the music fer sure.
 void S_StopMusic(void);

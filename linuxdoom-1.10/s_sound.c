@@ -45,6 +45,8 @@ static const char
 
 #include "doomstat.h"
 #include "custom_mix_pitch.h"
+#include "mus_parser.h"
+#include "midi_converter.h"
 
 
 // Purpose?
@@ -103,7 +105,6 @@ typedef struct {
     int handle;
 
 } channel_t;
-
 
 
 // the set of channels available
@@ -165,9 +166,8 @@ void S_Init
     fprintf(stderr, "S_Init: default sfx volume %d\n", sfxVolume);
 
     //Initialize SDL_mixer
-    if( Mix_OpenAudio( 11025, AUDIO_U8, 2, 512 ) < 0 )
-    {
-        I_Error( "SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError() );
+    if (Mix_OpenAudio(11025, AUDIO_U8, 2, 512) < 0) {
+        I_Error("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
     }
 
     // Whatever these did with DMX, these are rather dummies now.
@@ -247,12 +247,12 @@ void S_Start(void) {
     nextcleanup = 15;
 }
 
-static void ConvertMonoToStereo(sfxinfo_t* sfx) {
+static void ConvertMonoToStereo(sfxinfo_t *sfx) {
     int new_data_len = sfx->data_len * 2;
-    byte* new_data = malloc(new_data_len);
-    byte* write_ptr = new_data;
-    byte* read_ptr = (byte*)sfx->data;
-    for(int i = 0; i < sfx->data_len; ++i) {
+    byte *new_data = malloc(new_data_len);
+    byte *write_ptr = new_data;
+    byte *read_ptr = (byte *) sfx->data;
+    for (int i = 0; i < sfx->data_len; ++i) {
         *write_ptr++ = read_ptr[i];
         *write_ptr++ = read_ptr[i];
     }
@@ -327,11 +327,6 @@ S_StartSoundAtVolume
         sep = NORM_SEP;
     }
 
-
-    if(strcmp("shotgn", sfx->name) == 0) {
-        printf("shotgun at sep: %d vol: %d pitch %d\n", sep, volume, pitch);
-    }
-
     // hacks to vary the sfx pitches
     if (sfx_id >= sfx_sawup
         && sfx_id <= sfx_sawhit) {
@@ -366,7 +361,7 @@ S_StartSoundAtVolume
         sfx->lumpnum = I_GetSfxLumpNum(sfx);
     }
 
-    if(!sfx->data) {
+    if (!sfx->data) {
         sfx->data_len = W_LumpLength(sfx->lumpnum);
         sfx->data = malloc(sfx->data_len);
         W_ReadLump(sfx->lumpnum, sfx->data);
@@ -374,12 +369,12 @@ S_StartSoundAtVolume
         ConvertMonoToStereo(sfx);
     }
 
-    if(!sfx->chunk) {
+    if (!sfx->chunk) {
         sfx->chunk = Mix_QuickLoad_RAW(sfx->data, sfx->data_len);
     }
 
     // I think DOOM volumes ranges from 0-15, whereas SDL Mixer volume ranges from 0-128. So I transform the ranges.
-    Mix_VolumeChunk(sfx->chunk, (int)((volume / 15.0) * 128));
+    Mix_VolumeChunk(sfx->chunk, (int) ((volume / 15.0) * 128));
 
     int channel = Mix_PlayChannel(-1, sfx->chunk, 0);
     // Custom_Mix_RegisterPlaybackSpeedEffect(channel, sfx->chunk, 2.0f, 0);
@@ -582,8 +577,10 @@ void S_SetMusicVolume(int volume) {
                 volume);
     }
 
-    I_SetMusicVolume(127);
-    I_SetMusicVolume(volume);
+    // I_SetMusicVolume(127);
+    // I_SetMusicVolume(volume);
+    Mix_VolumeMusic(volume);
+    printf("setting volume to %d\n", volume);
     snd_MusicVolume = volume;
 }
 
@@ -607,11 +604,9 @@ void S_StartMusic(int m_id) {
 void
 S_ChangeMusic
         (int musicnum,
-         int looping) {
+         boolean looping) {
     musicinfo_t *music;
     char namebuf[9];
-
-    return;
 
     if ((musicnum <= mus_None)
         || (musicnum >= NUMMUSIC)) {
@@ -631,12 +626,36 @@ S_ChangeMusic
         music->lumpnum = W_GetNumForName(namebuf);
     }
 
+    printf("playing music %d %s\n", music->lumpnum, music->name);
     // load & register it
+    int len = W_LumpLength(music->lumpnum);
     music->data = (void *) W_CacheLumpNum(music->lumpnum, PU_MUSIC);
     music->handle = I_RegisterSong(music->data);
+    mus_file_t *m = mus_parse(music->data, len);
+    midi_data_t midi;
+    convert_mus_to_midi(m, &midi);
 
-    // play it
-    I_PlaySong(music->handle, looping);
+#if DEBUG_MUSIC
+    FILE *f = fopen("./music.mid", "wb");
+    fwrite(midi.data, midi.length, 1, f);
+    fclose(f);
+#endif
+    mus_free(m);
+
+
+    SDL_RWops *rw = SDL_RWFromMem(midi.data, midi.length);
+    if (rw == NULL) {
+        I_Error("SDL_RWFromMem failed");
+    }
+
+    Mix_Music *mus = Mix_LoadMUS_RW(rw, 0);
+    if (mus == NULL) {
+        I_Error("Failed to load music: %s", Mix_GetError());
+    }
+
+    if (Mix_PlayMusic(mus, looping ? -1 : 1) == -1) {
+        fprintf(stderr, "Failed to play music");
+    }
 
     mus_playing = music;
 }

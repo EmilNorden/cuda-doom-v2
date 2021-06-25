@@ -70,6 +70,10 @@ set(CPP_SOURCES
   m_random.h
   m_swap.c
   m_swap.h
+  midi_converter.c
+  midi_converter.h
+  mus_parser.c
+  mus_parser.h
   p_ceilng.c
   p_doors.c
   p_enemy.c
