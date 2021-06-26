@@ -205,8 +205,16 @@ int sdl_to_doom_key(SDL_Keycode key) {
             return KEY_ESCAPE;
         case SDLK_RETURN:
             return KEY_ENTER;
+        case SDLK_BACKSPACE:
+            return KEY_BACKSPACE;
         case SDLK_RCTRL:
             return KEY_RCTRL;
+        case SDLK_RALT:
+            return KEY_RALT;
+        case SDLK_LALT:
+            return KEY_LALT;
+        case SDLK_RSHIFT:
+            return KEY_RSHIFT;
         case SDLK_TAB:
             return KEY_TAB;
         case SDLK_F1:
