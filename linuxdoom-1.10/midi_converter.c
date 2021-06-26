@@ -144,7 +144,7 @@ static void write_event(binary_writer_t *writer, mus_event_t* event) {
             bw_write8(writer, event->release_note->note);
             bw_write8(writer, 0x00); // How hard to release. Unknown?
             break;
-        }y
+        }
         case play_note: {
             uint8_t midi_event_type = 0x90 + channel;
             bw_write8(writer, midi_event_type);
