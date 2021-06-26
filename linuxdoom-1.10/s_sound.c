@@ -50,7 +50,7 @@ static const char
 
 
 #define MAX_CHANNELS 16
-void* channel_origins[MAX_CHANNELS];
+void *channel_origins[MAX_CHANNELS];
 
 // Purpose?
 const char snd_prefixen[]
@@ -175,7 +175,7 @@ void S_Init
 
     Mix_AllocateChannels(MAX_CHANNELS);
 
-    for(i = 0; i < MAX_CHANNELS; ++i) {
+    for (i = 0; i < MAX_CHANNELS; ++i) {
         channel_origins[i] = NULL;
     }
 
@@ -463,8 +463,8 @@ S_StartSound
 
 
 void S_StopSound(void *origin) {
-    for(int i = 0; i < MAX_CHANNELS; ++i) {
-        if(channel_origins[i] == origin) {
+    for (int i = 0; i < MAX_CHANNELS; ++i) {
+        if (channel_origins[i] == origin) {
             Mix_HaltChannel(i);
         }
     }
@@ -661,7 +661,6 @@ S_ChangeMusic
     if (Mix_PlayMusic(mus, looping ? -1 : 1) == -1) {
         fprintf(stderr, "Failed to play music");
     }
-
     mus_playing = music;
 }
 
