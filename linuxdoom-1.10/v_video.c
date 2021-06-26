@@ -676,10 +676,6 @@ void V_Init(void) {
         memset(pixels[i], 0x00, SCREENWIDTH * SCREENHEIGHT);
     }
 
-    if(SDL_Init(SDL_INIT_EVERYTHING) < 0) {
-        I_Error("Unable to initialize SDL");
-    }
-
     init_sdl_window(false);
     init_gl_buffers();
     init_gl_textures();

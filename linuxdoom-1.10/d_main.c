@@ -32,12 +32,14 @@ static const char rcsid[] = "$Id: d_main.c,v 1.8 1997/02/03 22:45:09 b1 Exp $";
 
 
 #ifdef NORMALUNIX
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
 #endif
 
 
@@ -88,7 +90,7 @@ static const char rcsid[] = "$Id: d_main.c,v 1.8 1997/02/03 22:45:09 b1 Exp $";
 //  calls all ?_Responder, ?_Ticker, and ?_Drawer,
 //  calls I_GetTime, I_StartFrame, and I_StartTic
 //
-void D_DoomLoop(void);
+_Noreturn void D_DoomLoop(void);
 
 
 char *wadfiles[MAXWADFILES];
@@ -125,6 +127,18 @@ char wadfile[1024];        // primary wad file
 char mapdir[1024];           // directory of development maps
 char basedefault[1024];      // default file
 
+#define MAX_GAMEPADS 4
+static SDL_Joystick *gamepads[MAX_GAMEPADS];
+
+typedef struct gamepad_button_mapping {
+    int sdl_key;
+    int gamepad_button;
+} gamepad_button_mapping_t;
+
+static gamepad_button_mapping_t gamepad_mappings[2] = {
+        {SDLK_RCTRL, 7},
+        {SDLK_SPACE, 1}
+};
 
 void D_CheckNetGame(void);
 
@@ -134,6 +148,8 @@ void G_BuildTiccmd(ticcmd_t *cmd);
 
 void D_DoAdvanceDemo(void);
 
+//Analog joystick dead zone
+const int JOYSTICK_DEAD_ZONE = 8000;
 
 //
 // EVENT HANDLING
@@ -191,8 +207,10 @@ extern int showMessages;
 
 void R_ExecuteSetViewSize(void);
 
+void handle_gamepad_button_down(int button);
+
 int sdl_to_doom_key(SDL_Keycode key) {
-    switch(key) {
+    switch (key) {
         case SDLK_LEFT:
             return KEY_LEFTARROW;
         case SDLK_RIGHT:
@@ -242,15 +260,15 @@ int sdl_to_doom_key(SDL_Keycode key) {
         case SDLK_F12:
             return KEY_F12;
         default:
-            if(key >= 'A' && key <= 'Z') {
+            if (key >= 'A' && key <= 'Z') {
                 return key + ('a' - 'A');
             }
             return key;
     }
 }
 
-void handle_keydown(SDL_Keycode key, SDL_Keymod modifiers){
-    if(modifiers == KMOD_LALT && key == SDLK_RETURN) {
+void handle_keydown(SDL_Keycode key, SDL_Keymod modifiers) {
+    if (modifiers == KMOD_LALT && key == SDLK_RETURN) {
         V_ToggleFullScreen();
         return;
     }
@@ -261,12 +279,69 @@ void handle_keydown(SDL_Keycode key, SDL_Keymod modifiers){
     D_PostEvent(&event);
 }
 
-void handle_keyup(SDL_Keycode key){
+void handle_keyup(SDL_Keycode key) {
     event_t event;
 
     event.type = ev_keyup;
     event.data1 = sdl_to_doom_key(key);
     D_PostEvent(&event);
+}
+
+void handle_gamepad_button_down(int button) {
+    int number_of_mappings = sizeof(gamepad_mappings) / sizeof(gamepad_button_mapping_t);
+    for(int i = 0; i < number_of_mappings; ++i) {
+        if(gamepad_mappings[i].gamepad_button == button) {
+            handle_keydown(gamepad_mappings[i].sdl_key, 0);
+            break;
+        }
+    }
+}
+
+void handle_gamepad_button_up(int button) {
+    int number_of_mappings = sizeof(gamepad_mappings) / sizeof(gamepad_button_mapping_t);
+    for(int i = 0; i < number_of_mappings; ++i) {
+        if(gamepad_mappings[i].gamepad_button == button) {
+            handle_keyup(gamepad_mappings[i].sdl_key);
+            break;
+        }
+    }
+}
+
+static float normalize_axis_value(int axis_value) {
+    const int DEAD_ZONE = 8000;
+    if (axis_value > DEAD_ZONE) {
+        return (float) (axis_value - DEAD_ZONE) /
+               (float) ((0x7FFF - DEAD_ZONE));
+    } else if (axis_value < -DEAD_ZONE) {
+        return (float) (axis_value + DEAD_ZONE) /
+               (float) ((0x7FFF - DEAD_ZONE));
+    }
+
+    return 0.0f;
+}
+
+static float gamepad_right_stick_x = 0.0f;
+static float gamepad_left_stick_y = 0.0f;
+static void handle_gamepad_axis(SDL_JoyAxisEvent *gamepad_event) {
+    if(gamepad_event->axis == 0) {
+        if(gamepad_event->value <= 8000 && gamepad_event->value >= -8000) {
+            handle_keyup(SDLK_RALT);
+            handle_keyup(SDLK_RIGHT);handle_keyup(SDLK_LEFT);
+        } else if(gamepad_event->value > 8000) {
+            handle_keydown(SDLK_RIGHT, 0);
+            handle_keydown(SDLK_RALT, 0);
+        }
+        else if(gamepad_event->value < -8000) {
+            handle_keydown(SDLK_LEFT, 0);
+            handle_keydown(SDLK_RALT, 0);
+        }
+    }
+    else if(gamepad_event->axis == 1) {
+        gamepad_left_stick_y = normalize_axis_value(gamepad_event->value);
+    }
+    else if (gamepad_event->axis == 2) {
+        gamepad_right_stick_x = normalize_axis_value(gamepad_event->value);
+    }
 }
 
 void D_Display(void) {
@@ -283,16 +358,6 @@ void D_Display(void) {
     boolean done;
     boolean wipe;
     boolean redrawsbar;
-
-    SDL_Event event;
-    while(SDL_PollEvent(&event)) {
-            if(event.type == SDL_KEYDOWN) {
-                handle_keydown(event.key.keysym.sym, event.key.keysym.mod);
-            }
-            else if(event.type == SDL_KEYUP) {
-                handle_keyup(event.key.keysym.sym);
-            }
-    }
 
     if (nodrawers)
         return;                    // for comparative timing / profiling
@@ -416,13 +481,12 @@ void D_Display(void) {
     } while (!done);
 }
 
-
 //
 //  D_DoomLoop
 //
 extern boolean demorecording;
 
-void D_DoomLoop(void) {
+_Noreturn void D_DoomLoop(void) {
     if (demorecording)
         G_BeginRecording();
 
@@ -456,6 +520,51 @@ void D_DoomLoop(void) {
 
         S_UpdateSounds(players[consoleplayer].mo);// move positional sounds
 
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_KEYDOWN) {
+                handle_keydown(event.key.keysym.sym, event.key.keysym.mod);
+            } else if (event.type == SDL_KEYUP) {
+                handle_keyup(event.key.keysym.sym);
+            } else if (event.type == SDL_JOYAXISMOTION) {
+                handle_gamepad_axis(&event.jdevice);
+            } else if (event.type == SDL_JOYDEVICEADDED) {
+                if (event.jdevice.which < 0 || event.jdevice.which > MAX_GAMEPADS) {
+                    fprintf(stderr, "Gamepad connected but index is higher than %d\n", MAX_GAMEPADS - 1);
+                } else {
+                    gamepads[event.jdevice.which] = SDL_JoystickOpen(event.jdevice.which);
+                    if (gamepads[event.jdevice.which]) {
+                        printf("Gamepad %d connected.\n", event.jdevice.which);
+                    } else {
+                        fprintf(stderr, "Unable to open gamepad %d: %s\n", event.jdevice.which, SDL_GetError());
+                    }
+                }
+
+            } else if (event.type == SDL_JOYDEVICEREMOVED) {
+                if (event.jdevice.which < 0 || event.jdevice.which > MAX_GAMEPADS) {
+                    fprintf(stderr, "Gamepad disconnected but index is higher than %d\n", MAX_GAMEPADS - 1);
+                } else {
+                    SDL_JoystickClose(gamepads[event.jdevice.which]);
+                    gamepads[event.jdevice.which] = NULL;
+                    printf("Gamepad %d disconnected.\n", event.jdevice.which);
+                }
+            }
+            else if(event.type == SDL_JOYBUTTONDOWN) {
+                handle_gamepad_button_down(event.jbutton.button);
+            }
+            else if(event.type == SDL_JOYBUTTONUP) {
+                handle_gamepad_button_up(event.jbutton.button);
+            }
+        }
+
+        event_t e;
+        e.type = ev_joystick;
+        e.data1 = 0;
+        // event.data1 = Button data??
+        e.data2 = (int) (gamepad_right_stick_x * 150);
+        e.data3 = (int)(gamepad_left_stick_y * 100);
+        D_PostEvent(&e);
+
         // Update display, next frame, with current state.
         D_Display();
 
@@ -469,8 +578,8 @@ void D_DoomLoop(void) {
         I_SubmitSound();
 #endif
     }
-}
 
+}
 
 //
 //  DEMO LOOP
@@ -624,40 +733,40 @@ void IdentifyVersion(void) {
     char *doomwaddir;
     doomwaddir = getenv("DOOMWADDIR");
     if (!doomwaddir)
-    doomwaddir = ".";
+        doomwaddir = ".";
 
     // Commercial.
-    doom2wad = malloc(strlen(doomwaddir)+1+9+1);
+    doom2wad = malloc(strlen(doomwaddir) + 1 + 9 + 1);
     sprintf(doom2wad, "%s/doom2.wad", doomwaddir);
 
     // Retail.
-    doomuwad = malloc(strlen(doomwaddir)+1+8+1);
+    doomuwad = malloc(strlen(doomwaddir) + 1 + 8 + 1);
     sprintf(doomuwad, "%s/doomu.wad", doomwaddir);
-    
+
     // Registered.
-    doomwad = malloc(strlen(doomwaddir)+1+8+1);
+    doomwad = malloc(strlen(doomwaddir) + 1 + 8 + 1);
     sprintf(doomwad, "%s/doom.wad", doomwaddir);
-    
+
     // Shareware.
-    doom1wad = malloc(strlen(doomwaddir)+1+9+1);
+    doom1wad = malloc(strlen(doomwaddir) + 1 + 9 + 1);
     sprintf(doom1wad, "%s/doom1.wad", doomwaddir);
 
-     // Bug, dear Shawn.
+    // Bug, dear Shawn.
     // Insufficient malloc, caused spurious realloc errors.
-    plutoniawad = malloc(strlen(doomwaddir)+1+/*9*/12+1);
+    plutoniawad = malloc(strlen(doomwaddir) + 1 +/*9*/12 + 1);
     sprintf(plutoniawad, "%s/plutonia.wad", doomwaddir);
 
-    tntwad = malloc(strlen(doomwaddir)+1+9+1);
+    tntwad = malloc(strlen(doomwaddir) + 1 + 9 + 1);
     sprintf(tntwad, "%s/tnt.wad", doomwaddir);
 
 
     // French stuff.
-    doom2fwad = malloc(strlen(doomwaddir)+1+10+1);
+    doom2fwad = malloc(strlen(doomwaddir) + 1 + 10 + 1);
     sprintf(doom2fwad, "%s/doom2f.wad", doomwaddir);
 
     home = getenv("HOME");
     if (!home)
-      I_Error("Please set $HOME to your home directory");
+        I_Error("Please set $HOME to your home directory");
     sprintf(basedefault, "%s/.doomrc", home);
 #endif
 
@@ -836,6 +945,12 @@ void D_DoomMain(void) {
 
     setbuf(stdout, NULL);
     modifiedgame = false;
+
+    if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
+        I_Error("Unable to initialize SDL");
+    }
+
+    memset(gamepads, NULL, sizeof(sizeof(SDL_Joystick *) * MAX_GAMEPADS));
 
     nomonsters = M_CheckParm("-nomonsters");
     respawnparm = M_CheckParm("-respawn");
