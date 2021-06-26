@@ -144,7 +144,7 @@ static void write_event(binary_writer_t *writer, mus_event_t* event) {
             bw_write8(writer, event->release_note->note);
             bw_write8(writer, 0x00); // How hard to release. Unknown?
             break;
-        }
+        }y
         case play_note: {
             uint8_t midi_event_type = 0x90 + channel;
             bw_write8(writer, midi_event_type);
@@ -158,7 +158,7 @@ static void write_event(binary_writer_t *writer, mus_event_t* event) {
             // MUS uses the range 0-255, 128 being no bend
             // MIDI uses the range 0-16384, 8192 being no bend.
             // I need to transform the value to the new range
-            uint16_t bend = (uint16_t) (((float) event->pitch_bend->value / 255.0f) * 16384);
+            uint16_t bend = (uint16_t) (((float) event->pitch_bend->value / 128.0f) * 16384);
             bw_write16(writer, bend);
             break;
         }
