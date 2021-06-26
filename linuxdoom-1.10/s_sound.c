@@ -49,6 +49,9 @@ static const char
 #include "midi_converter.h"
 
 
+#define MAX_CHANNELS 16
+void* channel_origins[MAX_CHANNELS];
+
 // Purpose?
 const char snd_prefixen[]
         = {'P', 'P', 'A', 'S', 'S', 'S', 'M', 'M', 'M', 'S', 'S', 'S'};
@@ -168,6 +171,12 @@ void S_Init
     //Initialize SDL_mixer
     if (Mix_OpenAudio(11025, AUDIO_U8, 2, 512) < 0) {
         I_Error("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
+    }
+
+    Mix_AllocateChannels(MAX_CHANNELS);
+
+    for(i = 0; i < MAX_CHANNELS; ++i) {
+        channel_origins[i] = NULL;
     }
 
     // Whatever these did with DMX, these are rather dummies now.
@@ -348,7 +357,7 @@ S_StartSoundAtVolume
 
     // kill old sound
     // TODO: Not sure what this is, im commenting it out until i find out
-    // S_StopSound(origin);
+    S_StopSound(origin);
 
     //
     // This is supposed to handle the loading/caching.
@@ -454,13 +463,9 @@ S_StartSound
 
 
 void S_StopSound(void *origin) {
-
-    int cnum;
-
-    for (cnum = 0; cnum < numChannels; cnum++) {
-        if (channels[cnum].sfxinfo && channels[cnum].origin == origin) {
-            S_StopChannel(cnum);
-            break;
+    for(int i = 0; i < MAX_CHANNELS; ++i) {
+        if(channel_origins[i] == origin) {
+            Mix_HaltChannel(i);
         }
     }
 }
