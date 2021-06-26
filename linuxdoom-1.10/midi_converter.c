@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 static inline uint16_t Reverse16(uint16_t value) {
     return (((value & 0x00FF) << 8) |
@@ -177,6 +178,13 @@ static void write_event(binary_writer_t *writer, mus_event_t* event) {
                     bw_write8(writer, event->controller->value);
                     break;
                 }
+                case 2: {
+                    uint8_t midi_event_type = 0xB0 + channel;
+                    bw_write8(writer, midi_event_type);
+                    bw_write8(writer, 0x01); // modulation
+                    bw_write8(writer, event->controller->value); // modulation
+                    break;
+                }
                 case 3: {
                     // volume
                     uint8_t midi_event_type = 0xB0 + channel;
@@ -193,8 +201,16 @@ static void write_event(binary_writer_t *writer, mus_event_t* event) {
                     bw_write8(writer, event->controller->value);
                     break;
                 }
+                default: {
+                    fprintf(stderr, "Unknown controller number: %d\n", event->controller->number);
+                    exit(1);
+                }
             }
             break;
+        }
+        default: {
+            fprintf(stderr, "Unknown event type: %d\n", event->type);
+            exit(1);
         }
     }
 
