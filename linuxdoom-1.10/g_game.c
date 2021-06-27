@@ -48,6 +48,7 @@ static const char
 #include "hu_stuff.h"
 #include "st_stuff.h"
 #include "am_map.h"
+#include "r_geometry.h"
 
 // Needs access to LFB.
 #include "v_video.h"
@@ -457,6 +458,7 @@ void G_DoLoadLevel(void) {
     }
 
     P_SetupLevel(gameepisode, gamemap, 0, gameskill);
+    R_BuildGeometry();
     displayplayer = consoleplayer;        // view the guy you are playing
     starttime = I_GetTime();
     gameaction = ga_nothing;

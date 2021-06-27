@@ -64,6 +64,7 @@ GLubyte current_palette[256 * 3];
 // Allocates buffer screens, call before R_Init.
 void V_Init(void);
 
+void V_Render(void);
 // Present the back buffer on screen
 void V_Swap(void);
 

@@ -346,6 +346,7 @@ void I_StartTic(void) {
 // I_FinishUpdate
 //
 void I_FinishUpdate(void) {
+    V_Render();
     V_Swap();
 /*
     static int	lasttic;

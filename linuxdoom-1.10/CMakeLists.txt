@@ -109,8 +109,12 @@ set(CPP_SOURCES
   r_draw.c
   r_draw.h
   r_local.h
+  r_geometry.c
+  r_geometry.h
   r_main.c
   r_main.h
+  r_opengl.c
+  r_opengl.h
   r_plane.c
   r_plane.h
   r_segs.c

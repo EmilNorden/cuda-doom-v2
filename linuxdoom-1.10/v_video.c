@@ -72,6 +72,8 @@ static const char *glsl_drawtex_fragshader_src =
 #include "m_swap.h"
 
 #include "v_video.h"
+#include "r_opengl.h"
+#include "r_geometry.h"
 #include <GL/glew.h>
 #include <stdlib.h>
 #include <FreeImage.h>
@@ -477,17 +479,6 @@ static GLuint indices[] = {  // Note that we start from 0!
         1, 2, 3   // Second Triangle
 };
 
-void check_for_gl_errors() {
-    while (1) {
-        const GLenum err = glGetError();
-        if (err == GL_NO_ERROR) {
-            break;
-        }
-
-        fprintf(stderr, "GL Error %s", gluErrorString(err));
-    }
-}
-
 static void init_sdl_window(boolean fullscreen) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
@@ -527,7 +518,7 @@ static void init_sdl_window(boolean fullscreen) {
 
     glViewport(0, 0, width, height);
 
-    check_for_gl_errors();
+    R_CheckForGlErrors();
 }
 
 GLuint link_program(GLuint vertex_shader, GLuint fragment_shader) {
@@ -589,7 +580,7 @@ GLuint create_frame_texture(int width, int height) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, pixels);
     // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI_EXT, width, height, 0, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_BYTE, NULL);
 
-    check_for_gl_errors();
+    R_CheckForGlErrors();
 
     return texture;
 }
@@ -598,18 +589,18 @@ GLuint create_palette_texture() {
     GLuint texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_1D, texture);
-    check_for_gl_errors();
+    R_CheckForGlErrors();
 
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-    check_for_gl_errors();
+    R_CheckForGlErrors();
 
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB8UI, 256, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, current_palette);
 
-    check_for_gl_errors();
+    R_CheckForGlErrors();
 
     return texture;
 }
@@ -645,7 +636,7 @@ static void init_gl_buffers()
     // vertex buffer object so afterwards we can safely unbind
     glBindVertexArray(0);
 
-    check_for_gl_errors();
+    R_CheckForGlErrors();
 }
 
 void init_gl_textures() {
@@ -681,7 +672,7 @@ void V_Init(void) {
     init_gl_textures();
     init_gl_shaders();
 
-    check_for_gl_errors();
+    R_CheckForGlErrors();
 }
 
 void V_UpdatePalette(byte *palette) {
@@ -689,7 +680,7 @@ void V_UpdatePalette(byte *palette) {
     glBindTexture(GL_TEXTURE_1D, palette_texture);
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB8UI, 256, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, current_palette);
 
-    check_for_gl_errors();
+    R_CheckForGlErrors();
 }
 
 void update_frame_texture(void) {
@@ -707,12 +698,12 @@ void update_frame_texture(void) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, pixels[0]);
     // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI_EXT, 320, 200, 0, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_BYTE, pixels);
 
-    check_for_gl_errors();
+    R_CheckForGlErrors();
 }
 
-void V_Swap(void) {
+void V_Render(void) {
     update_frame_texture();
-    glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     glUseProgram(shader_program);
@@ -724,14 +715,16 @@ void V_Swap(void) {
     glBindTexture(GL_TEXTURE_1D, palette_texture);
     glUniform1i(glGetUniformLocation(shader_program, "palette_tex"), 1);
 
+    //R_DrawGeometry();
     glBindVertexArray(VAO); // binding VAO automatically binds EBO
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0); // unbind VAO
 
-    check_for_gl_errors();
+    R_CheckForGlErrors();
+}
 
+void V_Swap(void) {
     SDL_GL_SwapWindow(window);
-
 }
 
 void V_ToggleFullScreen() {
@@ -746,5 +739,5 @@ void V_ToggleFullScreen() {
     init_gl_textures();
     init_gl_shaders();
 
-    check_for_gl_errors();
+    R_CheckForGlErrors();
 }

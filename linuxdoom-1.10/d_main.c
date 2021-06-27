@@ -148,6 +148,10 @@ void G_BuildTiccmd(ticcmd_t *cmd);
 
 void D_DoAdvanceDemo(void);
 
+void P_PreviousWeapon(player_t *player);
+
+void P_NextWeapon(player_t *player);
+
 //Analog joystick dead zone
 const int JOYSTICK_DEAD_ZONE = 8000;
 
@@ -299,6 +303,11 @@ void handle_gamepad_button_down(int button) {
 
 void handle_gamepad_button_up(int button) {
     int number_of_mappings = sizeof(gamepad_mappings) / sizeof(gamepad_button_mapping_t);
+    if(button == 5) {
+        P_NextWeapon(&players[0]);
+    } else if(button == 4) {
+        P_PreviousWeapon(&players[0]);
+    }
     for(int i = 0; i < number_of_mappings; ++i) {
         if(gamepad_mappings[i].gamepad_button == button) {
             handle_keyup(gamepad_mappings[i].sdl_key);
