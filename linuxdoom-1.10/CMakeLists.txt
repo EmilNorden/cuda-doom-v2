@@ -161,7 +161,6 @@ target_link_libraries(doom
         ${GLEW_LIBRARIES}
         ${OPENGL_LIBRARIES}
         ${FREEIMAGE_LIBRARIES}
-        portaudio_static
         ${SDL2_LIBRARIES}
         ${SDL2_MIXER_LIBRARIES})
 
@@ -169,6 +168,5 @@ target_include_directories(doom SYSTEM PRIVATE
         ${GLEW_INCLUDE_DIRS}
         ${OPENGL_INCLUDE_DIR}
         ${FREEIMAGE_INCLUDE_DIRS}
-        ../external/portaudio/include
         ${SDL2_INCLUDE_DIRS}
         ${SDL2_MIXER_INCLUDE_DIRS})
