@@ -459,7 +459,7 @@ void G_DoLoadLevel(void) {
     }
 
     P_SetupLevel(gameepisode, gamemap, 0, gameskill);
-    R_BuildGeometry();
+    // R_BuildGeometry();
     displayplayer = consoleplayer;        // view the guy you are playing
     starttime = I_GetTime();
     gameaction = ga_nothing;

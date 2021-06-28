@@ -24,10 +24,10 @@
 
 
 
-#ifndef __Z_ZONE__
-#define __Z_ZONE__
+#ifndef Z_ZONE__
+#define Z_ZONE__
 
-#include <stdio.h>
+#include <cstdio>
 
 //
 // ZONE MEMORY
@@ -44,15 +44,15 @@
 #define PU_CACHE		101
 
 
-void	Z_Init (void);
+void	Z_Init ();
 void*	Z_Malloc (int size, int tag, void *ptr);
 void    Z_Free (void *ptr);
 void    Z_FreeTags (int lowtag, int hightag);
 void    Z_DumpHeap (int lowtag, int hightag);
 void    Z_FileDumpHeap (FILE *f);
-void    Z_CheckHeap (void);
+void    Z_CheckHeap ();
 void    Z_ChangeTag2 (void *ptr, int tag);
-int     Z_FreeMemory (void);
+int     Z_FreeMemory ();
 
 
 typedef struct memblock_s

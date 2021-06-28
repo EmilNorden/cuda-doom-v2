@@ -749,7 +749,7 @@ void IdentifyVersion(void) {
     sprintf(doom2wad, "%s/doom2.wad", doomwaddir);
 
     // Retail.
-    doomuwad = (char*)malloc(strlen(doomwaddir) + 1 + 8 + 1);
+    doomuwad = (char*)malloc(strlen(doomwaddir) + 1 + 9 + 1);
     sprintf(doomuwad, "%s/doomu.wad", doomwaddir);
 
     // Registered.

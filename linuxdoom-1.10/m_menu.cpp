@@ -1174,12 +1174,10 @@ void M_StopMessage(void) {
 // Find string width from hu_font chars
 //
 int M_StringWidth(char *string) {
-    int i;
     int w = 0;
-    int c;
 
-    for (i = 0; i < strlen(string); i++) {
-        c = toupper(string[i]) - HU_FONTSTART;
+    for (int i = 0; i < strlen(string); i++) {
+        int c = toupper(string[i]) - HU_FONTSTART;
         if (c < 0 || c >= HU_FONTSIZE)
             w += 4;
         else
@@ -1603,7 +1601,7 @@ void M_StartControlPanel(void) {
 // Called after the view has been rendered,
 // but before it has been blitted.
 //
-void M_Drawer(void) {
+void M_Drawer() {
     static short x;
     static short y;
     short i;
@@ -1613,6 +1611,7 @@ void M_Drawer(void) {
 
     inhelpscreens = false;
 
+    memset(string, 0, 40);
 
     // Horiz. & Vertically center string and print it.
     if (messageToPrint) {

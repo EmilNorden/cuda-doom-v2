@@ -23,7 +23,7 @@
 
 static const char rcsid[] = "$Id: am_map.c,v 1.4 1997/02/03 21:24:33 b1 Exp $";
 
-#include <stdio.h>
+#include <cstdio>
 
 
 #include "z_zone.h"
@@ -290,11 +290,11 @@ static int markpointnum = 0; // next point to be assigned
 static int followplayer = 1; // specifies whether to follow the player around
 
 static unsigned char cheat_amap_seq[] = {0xb2, 0x26, 0x26, 0x2e, 0xff};
-static cheatseq_t cheat_amap = {cheat_amap_seq, 0};
+static cheatseq_t cheat_amap = {cheat_amap_seq, nullptr};
 
 static boolean stopped = true;
 
-extern boolean viewactive;
+
 //extern byte screens[][SCREENWIDTH*SCREENHEIGHT];
 
 
@@ -328,7 +328,7 @@ AM_getIslope
 //
 //
 //
-void AM_activateNewScale(void) {
+void AM_activateNewScale() {
     m_x += m_w / 2;
     m_y += m_h / 2;
     m_w = FTOM(f_w);
@@ -342,7 +342,7 @@ void AM_activateNewScale(void) {
 //
 //
 //
-void AM_saveScaleAndLoc(void) {
+void AM_saveScaleAndLoc() {
     old_m_x = m_x;
     old_m_y = m_y;
     old_m_w = m_w;
@@ -352,7 +352,7 @@ void AM_saveScaleAndLoc(void) {
 //
 //
 //
-void AM_restoreScaleAndLoc(void) {
+void AM_restoreScaleAndLoc() {
 
     m_w = old_m_w;
     m_h = old_m_h;
@@ -374,7 +374,7 @@ void AM_restoreScaleAndLoc(void) {
 //
 // adds a marker at the current location
 //
-void AM_addMark(void) {
+void AM_addMark() {
     markpoints[markpointnum].x = m_x + m_w / 2;
     markpoints[markpointnum].y = m_y + m_h / 2;
     markpointnum = (markpointnum + 1) % AM_NUMMARKPOINTS;
@@ -385,7 +385,7 @@ void AM_addMark(void) {
 // Determines bounding box of all vertices,
 // sets global variables controlling zoom range.
 //
-void AM_findMinMaxBoundaries(void) {
+void AM_findMinMaxBoundaries() {
     int i;
     fixed_t a;
     fixed_t b;
@@ -423,7 +423,7 @@ void AM_findMinMaxBoundaries(void) {
 //
 //
 //
-void AM_changeWindowLoc(void) {
+void AM_changeWindowLoc() {
     if (m_paninc.x || m_paninc.y) {
         followplayer = 0;
         f_oldloc.x = MAXINT;
@@ -450,7 +450,7 @@ void AM_changeWindowLoc(void) {
 //
 //
 //
-void AM_initVariables(void) {
+void AM_initVariables() {
     int pnum;
     static event_t st_notify = {ev_keyup, AM_MSGENTERED};
 
@@ -493,7 +493,7 @@ void AM_initVariables(void) {
 //
 // 
 //
-void AM_loadPics(void) {
+void AM_loadPics() {
     int i;
     char namebuf[9];
 
@@ -504,14 +504,14 @@ void AM_loadPics(void) {
 
 }
 
-void AM_unloadPics(void) {
+void AM_unloadPics() {
     int i;
 
     for (i = 0; i < 10; i++) Z_ChangeTag(marknums[i], PU_CACHE);
 
 }
 
-void AM_clearMarks(void) {
+void AM_clearMarks() {
     int i;
 
     for (i = 0; i < AM_NUMMARKPOINTS; i++)
@@ -523,7 +523,7 @@ void AM_clearMarks(void) {
 // should be called at the start of every level
 // right now, i figure it out myself
 //
-void AM_LevelInit(void) {
+void AM_LevelInit() {
     leveljuststarted = 0;
 
     f_x = f_y = 0;
@@ -543,7 +543,7 @@ void AM_LevelInit(void) {
 //
 //
 //
-void AM_Stop(void) {
+void AM_Stop() {
     static event_t st_notify = {(evtype_t)0, ev_keyup, AM_MSGEXITED};
 
     AM_unloadPics();
@@ -555,7 +555,7 @@ void AM_Stop(void) {
 //
 //
 //
-void AM_Start(void) {
+void AM_Start() {
     static int lastlevel = -1, lastepisode = -1;
 
     if (!stopped) AM_Stop();
@@ -572,7 +572,7 @@ void AM_Start(void) {
 //
 // set the window scale to the maximum size
 //
-void AM_minOutWindowScale(void) {
+void AM_minOutWindowScale() {
     scale_mtof = min_scale_mtof;
     scale_ftom = FixedDiv(FRACUNIT, scale_mtof);
     AM_activateNewScale();
@@ -581,7 +581,7 @@ void AM_minOutWindowScale(void) {
 //
 // set the window scale to the minimum size
 //
-void AM_maxOutWindowScale(void) {
+void AM_maxOutWindowScale() {
     scale_mtof = max_scale_mtof;
     scale_ftom = FixedDiv(FRACUNIT, scale_mtof);
     AM_activateNewScale();
@@ -596,7 +596,6 @@ AM_Responder
         (event_t *ev) {
 
     int rc;
-    static int cheatstate = 0;
     static int bigstate = 0;
     static char buffer[20];
 
@@ -667,7 +666,6 @@ AM_Responder
                 plr->message = AMSTR_MARKSCLEARED;
                 break;
             default:
-                cheatstate = 0;
                 rc = false;
         }
         if (!deathmatch && cht_CheckCheat(&cheat_amap, ev->data1)) {
@@ -962,7 +960,7 @@ AM_drawFline
 
     if (ax > ay) {
         d = ay - ax / 2;
-        while (1) {
+        while (true) {
             PUTDOT(x, y, color);
             if (x == fl->b.x) return;
             if (d >= 0) {
@@ -974,7 +972,7 @@ AM_drawFline
         }
     } else {
         d = ax - ay / 2;
-        while (1) {
+        while (true) {
             PUTDOT(x, y, color);
             if (y == fl->b.y) return;
             if (d >= 0) {
@@ -1196,8 +1194,7 @@ void AM_drawPlayers(void) {
 
 void
 AM_drawThings
-        (int colors,
-         int colorrange) {
+        (int colors) {
     int i;
     mobj_t *t;
 
@@ -1244,7 +1241,7 @@ void AM_Drawer(void) {
     AM_drawWalls();
     AM_drawPlayers();
     if (cheating == 2)
-        AM_drawThings(THINGCOLORS, THINGRANGE);
+        AM_drawThings(THINGCOLORS);
     AM_drawCrosshair(XHAIRCOLORS);
 
     AM_drawMarks();

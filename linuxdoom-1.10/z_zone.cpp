@@ -26,7 +26,6 @@ static const char
 
 #include "z_zone.h"
 #include "i_system.h"
-#include "doomdef.h"
 
 
 //
@@ -59,33 +58,9 @@ memzone_t *mainzone;
 
 
 //
-// Z_ClearZone
-//
-void Z_ClearZone(memzone_t *zone) {
-    memblock_t *block;
-
-    // set the entire zone to one free block
-    zone->blocklist.next =
-    zone->blocklist.prev =
-    block = (memblock_t *) ((byte *) zone + sizeof(memzone_t));
-
-    zone->blocklist.user = (void **) zone;
-    zone->blocklist.tag = PU_STATIC;
-    zone->rover = block;
-
-    block->prev = block->next = &zone->blocklist;
-
-    // NULL indicates a free block.
-    block->user = NULL;
-
-    block->size = zone->size - sizeof(memzone_t);
-}
-
-
-//
 // Z_Init
 //
-void Z_Init(void) {
+void Z_Init() {
     memblock_t *block;
     int size;
 
@@ -104,9 +79,9 @@ void Z_Init(void) {
     block->prev = block->next = &mainzone->blocklist;
 
     // NULL indicates a free block.
-    block->user = NULL;
+    block->user = nullptr;
 
-    block->size = mainzone->size - sizeof(memzone_t);
+    block->size = mainzone->size - (int)sizeof(memzone_t);
 }
 
 
@@ -127,11 +102,11 @@ void Z_Free(void *ptr) {
         // Note: OS-dependend?
 
         // clear the user's mark
-        *block->user = 0;
+        *block->user = nullptr;
     }
 
     // mark as free
-    block->user = NULL;
+    block->user = nullptr;
     block->tag = 0;
     block->id = 0;
 
@@ -235,7 +210,7 @@ Z_Malloc
         newblock->size = extra;
 
         // NULL indicates free block.
-        newblock->user = NULL;
+        newblock->user = nullptr;
         newblock->tag = 0;
         newblock->prev = base;
         newblock->next = base->next;
@@ -363,7 +338,7 @@ void Z_FileDumpHeap(FILE *f) {
 //
 // Z_CheckHeap
 //
-void Z_CheckHeap(void) {
+void Z_CheckHeap() {
     memblock_t *block;
 
     for (block = mainzone->blocklist.next;; block = block->next) {
@@ -408,7 +383,7 @@ Z_ChangeTag2
 //
 // Z_FreeMemory
 //
-int Z_FreeMemory(void) {
+int Z_FreeMemory() {
     memblock_t *block;
     int free;
 

@@ -30,6 +30,7 @@
 // used to represent them, unfortunately).
 #include "d_items.h"
 #include "p_pspr.h"
+#include <cstdint>
 
 // In addition, the player is just a special
 // case of the generic moving object/actor.
@@ -137,7 +138,7 @@ typedef struct player_s
     int			secretcount;
 
     // Hint messages.
-    char*		message;
+    const char*		message;
     
     // For screen flashing (red or bright).
     int			damagecount;

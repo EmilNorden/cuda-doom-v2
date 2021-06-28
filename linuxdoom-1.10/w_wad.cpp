@@ -329,7 +329,7 @@ int W_NumLumps(void) {
 // Returns -1 if name not found.
 //
 
-intptr_t W_CheckNumForName(char *name) {
+intptr_t W_CheckNumForName(const char *name) {
     union {
         char s[9];
         int x[2];
@@ -372,7 +372,7 @@ intptr_t W_CheckNumForName(char *name) {
 // W_GetNumForName
 // Calls W_CheckNumForName, but bombs out if not found.
 //
-intptr_t W_GetNumForName(char *name) {
+intptr_t W_GetNumForName(const char *name) {
     int i;
 
     i = W_CheckNumForName(name);
