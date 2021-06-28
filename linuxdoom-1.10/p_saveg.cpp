@@ -256,7 +256,9 @@ void P_UnArchiveThinkers(void) {
     P_InitThinkers();
 
     // read in saved thinkers
+    int iterations = 0;
     while (1) {
+        iterations++;
         tclass = *save_p++;
         switch (tclass) {
             case tc_end:
