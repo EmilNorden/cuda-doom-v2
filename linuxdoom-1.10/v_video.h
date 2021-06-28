@@ -51,15 +51,6 @@ extern int usegamma;
 
 #define SCREEN_COUNT    5
 
-SDL_Window *window;
-SDL_GLContext gl_context;
-GLuint VBO, VAO, EBO;
-GLuint fragment_shader, vertex_shader, shader_program;
-GLuint frame_texture;
-GLuint palette_texture;
-GLubyte *pixels[SCREEN_COUNT];
-GLubyte current_palette[256 * 3];
-
 
 // Allocates buffer screens, call before R_Init.
 void V_Init(void);

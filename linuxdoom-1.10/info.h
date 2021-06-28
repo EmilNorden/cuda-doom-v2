@@ -1150,10 +1150,21 @@ typedef struct
   long			frame;
   long			tics;
   // void		(*action) ();
-  actionf_t			action;
+  actionf_p3			action;
   statenum_t			nextstate;
   long			misc1, misc2;
 } state_t;
+
+class sprite_state {
+public:
+    spritenum_t	sprite;
+    long			frame;
+    long			tics;
+    // void		(*action) ();
+    // actionf_t			action;
+    statenum_t			nextstate;
+    long			misc1, misc2;
+};
 
 extern state_t	states[NUMSTATES];
 extern char *sprnames[NUMSPRITES];

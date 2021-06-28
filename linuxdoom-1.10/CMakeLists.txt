@@ -7,140 +7,140 @@ add_definitions(-DLINUX)
 endif()
 
 set(CPP_SOURCES
-  am_map.c
+        am_map.cpp
   am_map.h
-  custom_mix_pitch.c
+        custom_mix_pitch.cpp
   custom_mix_pitch.h
   custom_mix_pitch_callback.h
   d_englsh.h
   d_event.h
   d_french.h
-  d_items.c
+        d_items.cpp
   d_items.h
-  d_main.c
+        d_main.cpp
   d_main.h
-  d_net.c
+        d_net.cpp
   d_net.h
   d_player.h
   d_textur.h
   d_think.h
   d_ticcmd.h
   doomdata.h
-  doomdef.c
+        doomdef.cpp
   doomdef.h
-  doomstat.c
+        doomstat.cpp
   doomstat.h
   doomtype.h
-  dstrings.c
+        dstrings.cpp
   dstrings.h
-  f_finale.c
+        f_finale.cpp
   f_finale.h
-  f_wipe.c
+        f_wipe.cpp
   f_wipe.h
-  g_game.c
+        g_game.cpp
   g_game.h
-  hu_lib.c
+        hu_lib.cpp
   hu_lib.h
-  hu_stuff.c
+        hu_stuff.cpp
   hu_stuff.h
-  i_main.c
-  i_net.c
+        i_main.cpp
+        i_net.cpp
   i_net.h
-  i_sound.c
+        i_sound.cpp
   i_sound.h
-  i_system.c
+        i_system.cpp
   i_system.h
-  i_video.c
+        i_video.cpp
   i_video.h
-  info.c
+        info.cpp
   info.h
-  m_argv.c
+        m_argv.cpp
   m_argv.h
-  m_bbox.c
+        m_bbox.cpp
   m_bbox.h
-  m_cheat.c
+        m_cheat.cpp
   m_cheat.h
-  m_fixed.c
+        m_fixed.cpp
   m_fixed.h
-  m_menu.c
+        m_menu.cpp
   m_menu.h
-  m_misc.c
+        m_misc.cpp
   m_misc.h
-  m_random.c
+        m_random.cpp
   m_random.h
-  m_swap.c
+        m_swap.cpp
   m_swap.h
-  midi_converter.c
+        midi_converter.cpp
   midi_converter.h
-  mus_parser.c
+        mus_parser.cpp
   mus_parser.h
-  p_ceilng.c
-  p_doors.c
-  p_enemy.c
-  p_floor.c
-  p_inter.c
+        p_ceilng.cpp
+        p_doors.cpp
+        p_enemy.cpp
+        p_floor.cpp
+        p_inter.cpp
   p_inter.h
-  p_lights.c
+        p_lights.cpp
   p_local.h
-  p_map.c
-  p_maputl.c
-  p_mobj.c
+        p_map.cpp
+        p_maputl.cpp
+        p_mobj.cpp
   p_mobj.h
-  p_plats.c
-  p_pspr.c
+        p_plats.cpp
+        p_pspr.cpp
   p_pspr.h
-  p_saveg.c
+        p_saveg.cpp
   p_saveg.h
-  p_setup.c
+        p_setup.cpp
   p_setup.h
-  p_sight.c
-  p_spec.c
+        p_sight.cpp
+        p_spec.cpp
   p_spec.h
-  p_switch.c
-  p_telept.c
-  p_tick.c
+        p_switch.cpp
+        p_telept.cpp
+        p_tick.cpp
   p_tick.h
-  p_user.c
-  r_bsp.c
+        p_user.cpp
+        r_bsp.cpp
   r_bsp.h
-  r_data.c
+        r_data.cpp
   r_data.h
   r_defs.h
-  r_draw.c
+        r_draw.cpp
   r_draw.h
   r_local.h
-  r_geometry.c
+        r_geometry.cpp
   r_geometry.h
-  r_main.c
+        r_main.cpp
   r_main.h
-  r_opengl.c
+        r_opengl.cpp
   r_opengl.h
-  r_plane.c
+        r_plane.cpp
   r_plane.h
-  r_segs.c
+        r_segs.cpp
   r_segs.h
-  r_sky.c
+        r_sky.cpp
   r_sky.h
   r_state.h
-  r_things.c
+        r_things.cpp
   r_things.h
-  s_sound.c
+        s_sound.cpp
   s_sound.h
-  sounds.c
+        sounds.cpp
   sounds.h
-  st_lib.c
+        st_lib.cpp
   st_lib.h
-  st_stuff.c
+        st_stuff.cpp
   st_stuff.h
-  tables.c
+        tables.cpp
   tables.h
-  v_video.c
+        v_video.cpp
   v_video.h
-  w_wad.c
+        w_wad.cpp
   w_wad.h
-  wi_stuff.c
+        wi_stuff.cpp
   wi_stuff.h
-  z_zone.c
+        z_zone.cpp
   z_zone.h
 )
 
@@ -161,7 +161,6 @@ target_link_libraries(doom
         ${GLEW_LIBRARIES}
         ${OPENGL_LIBRARIES}
         ${FREEIMAGE_LIBRARIES}
-        portaudio_static
         ${SDL2_LIBRARIES}
         ${SDL2_MIXER_LIBRARIES})
 
@@ -169,6 +168,5 @@ target_include_directories(doom SYSTEM PRIVATE
         ${GLEW_INCLUDE_DIRS}
         ${OPENGL_INCLUDE_DIR}
         ${FREEIMAGE_INCLUDE_DIRS}
-        ../external/portaudio/include
         ${SDL2_INCLUDE_DIRS}
         ${SDL2_MIXER_INCLUDE_DIRS})
