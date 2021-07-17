@@ -51,15 +51,42 @@ static const char *glsl_drawtex_fragshader_src =
         "#version 330 core\n"
         "uniform usampler2D tex;\n"
         "uniform usampler1D palette_tex;\n"
+        "uniform bool interpolate = false;"
         "in vec3 ourColor;\n"
         "in vec2 ourTexCoord;\n"
         "out vec4 color;\n"
-        "void main()\n"
-        "{\n"
-        "       uvec4 index = texture(tex, ourTexCoord);\n"
+        "vec4 color_at_texcoord(vec2 v)"
+        "{"
+        "       uvec4 index = texture(tex, v);\n"
         "       vec4 c = texture(palette_tex, float(index) / 255.0);\n"
-        "   	color = vec4(c.rgb, 255) / 255.0;\n"
-        "}\n";
+        "   	return vec4(c.rgb, 255) / 255.0;\n"
+        "}"
+        "vec4 shade_bilinear()\n"
+        "{\n"
+        "       float x = ourTexCoord.x * 320.0;"
+        "       float y = ourTexCoord.y * 200.0;"
+        "       float uv_x_step = 1.0 / 320.0;"
+        "       float uv_y_step = 1.0 / 200.0;"
+        "       float x0 = ceil(x - 1.0);"
+        "       float y0 = ceil(y - 1.0);"
+        "       vec4 color_x0_y0 = color_at_texcoord(ourTexCoord);"
+        "       vec4 color_x1_y0 = color_at_texcoord(vec2(ourTexCoord.x + uv_x_step, ourTexCoord.y));"
+
+        "       vec4 color_x0_y1 = color_at_texcoord(vec2(ourTexCoord.x, ourTexCoord.y + uv_y_step));"
+        "       vec4 color_x1_y1 = color_at_texcoord(vec2(ourTexCoord.x + uv_x_step, ourTexCoord.y + uv_y_step));"
+        "       vec4 color_y0 = mix(color_x0_y0, color_x1_y0, x - x0);"
+        "       vec4 color_y1 = mix(color_x0_y1, color_x1_y1, x - x0);"
+        "       return mix(color_y0, color_y1, y - y0);"
+        "}\n"
+        "void main()"
+        "{"
+        "       if(interpolate) {"
+        "               color = shade_bilinear();"
+        "       }"
+        "       else {"
+        "               color = color_at_texcoord(ourTexCoord);"
+        "       }"
+        "}";
 
 
 #include "i_system.h"
@@ -76,7 +103,6 @@ static const char *glsl_drawtex_fragshader_src =
 #include "r_geometry.h"
 #include <GL/glew.h>
 #include <stdlib.h>
-#include <FreeImage.h>
 
 // Each screen is [SCREENWIDTH*SCREENHEIGHT]; 
 byte *screens[5];
@@ -101,7 +127,7 @@ byte gammatable[5][256] =
                                                                                                                                                  33, 34, 35, 36, 37, 38, 39,  40,  41,  42,  43,  44, 45,  46,  47,  48,
                                                                                                                                                                                                                           49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63,  64,
                                                                                                                                                                                                                                                                                                           65,  66,  67,  68,  69,  70,  71,  72,  73,  74,  75,  76,  77,  78,  79,  80,
-                                                                                                                                                                                                                                                                                                                                                                                          81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95,  96,
+                                                                                                                                                                                                                                                                                                                                                                                           81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95,  96,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                           97,  98,  99,  100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143,
@@ -581,10 +607,10 @@ GLuint create_frame_texture(int width, int height) {
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, pixels);
     // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI_EXT, width, height, 0, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_BYTE, NULL);
@@ -636,7 +662,7 @@ static void init_gl_buffers()
     // Color attribute (3 floats)
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid *) (3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
-    // Texture attribute (2 floats)
+
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid *) (6 * sizeof(GLfloat)));
     glEnableVertexAttribArray(2);
 
