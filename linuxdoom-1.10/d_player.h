@@ -30,6 +30,7 @@
 // used to represent them, unfortunately).
 #include "d_items.h"
 #include "p_pspr.h"
+#include <cstdint>
 
 // In addition, the player is just a special
 // case of the generic moving object/actor.
@@ -116,7 +117,7 @@ typedef struct player_s
     // Is wp_nochange if not changing.
     weapontype_t	pendingweapon;
 
-    boolean		weaponowned[NUMWEAPONS];
+    int		weaponowned[NUMWEAPONS];
     int			ammo[NUMAMMO];
     int			maxammo[NUMAMMO];
 
@@ -137,7 +138,7 @@ typedef struct player_s
     int			secretcount;
 
     // Hint messages.
-    char*		message;	
+    const char*		message;
     
     // For screen flashing (red or bright).
     int			damagecount;
@@ -161,7 +162,7 @@ typedef struct player_s
     pspdef_t		psprites[NUMPSPRITES];
 
     // True if secret level has been done.
-    boolean		didsecret;	
+    int32_t		didsecret;
 
 } player_t;
 

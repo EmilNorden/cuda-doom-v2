@@ -70,8 +70,8 @@ extern	int		numlumps;
 void    W_InitMultipleFiles (char** filenames);
 void    W_Reload (void);
 
-intptr_t W_CheckNumForName (char* name);
-intptr_t W_GetNumForName (char* name);
+intptr_t W_CheckNumForName (const char* name);
+intptr_t W_GetNumForName (const char* name);
 
 int	W_LumpLength (intptr_t lump);
 void    W_ReadLump (intptr_t lump, void *dest);

@@ -12,6 +12,6 @@ typedef struct midi_data {
 } midi_data_t;
 
 
-boolean convert_mus_to_midi(struct mus_file* mus, midi_data_t *out_midi);
+void convert_mus_to_midi(struct mus_file* mus, midi_data_t *out_midi);
 
 #endif //DOOM_MIDI_CONVERTER_H
