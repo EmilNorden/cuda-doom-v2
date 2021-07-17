@@ -129,6 +129,7 @@ char basedefault[1024];      // default file
 
 #define MAX_GAMEPADS 4
 static SDL_Joystick *gamepads[MAX_GAMEPADS];
+static SDL_Haptic *haptic[MAX_GAMEPADS];
 
 typedef struct gamepad_button_mapping {
     int sdl_key;
@@ -307,6 +308,33 @@ void handle_gamepad_button_up(int button) {
         P_NextWeapon(&players[0]);
     } else if(button == 4) {
         P_PreviousWeapon(&players[0]);
+
+        if(!haptic[0]) {
+            fprintf(stderr, "No haptic :(\n");
+        }
+
+        SDL_HapticEffect effect;
+        // Create the effect
+        SDL_memset( &effect, 0, sizeof(SDL_HapticEffect) ); // 0 is safe default
+        effect.type = SDL_HAPTIC_SINE;
+        effect.periodic.direction.type = SDL_HAPTIC_POLAR; // Polar coordinates
+        effect.periodic.direction.dir[0] = 18000; // Force comes from south
+        effect.periodic.period = 1000; // 1000 ms
+        effect.periodic.magnitude = 20000; // 20000/32767 strength
+        effect.periodic.length = 5000; // 5 seconds long
+        effect.periodic.attack_length = 1000; // Takes 1 second to get max strength
+        effect.periodic.fade_length = 1000; // Takes 1 second to fade away
+
+        // Upload the effect
+        auto effect_id = SDL_HapticNewEffect( haptic[0], &effect );
+
+        // Test the effect
+        SDL_HapticRunEffect( haptic[0], effect_id, 1 );
+        SDL_Delay( 5000); // Wait for the effect to finish
+
+        // We destroy the effect, although closing the device also does this
+        SDL_HapticDestroyEffect( haptic[0], effect_id );
+
     }
     for(int i = 0; i < number_of_mappings; ++i) {
         if(gamepad_mappings[i].gamepad_button == button) {
@@ -541,9 +569,15 @@ extern boolean demorecording;
                 if (event.jdevice.which < 0 || event.jdevice.which > MAX_GAMEPADS) {
                     fprintf(stderr, "Gamepad connected but index is higher than %d\n", MAX_GAMEPADS - 1);
                 } else {
-                    gamepads[event.jdevice.which] = SDL_JoystickOpen(event.jdevice.which);
-                    if (gamepads[event.jdevice.which]) {
+                    auto joystick = SDL_JoystickOpen(event.jdevice.which);
+                    gamepads[event.jdevice.which] = joystick;
+                    if (joystick) {
                         printf("Gamepad %d connected.\n", event.jdevice.which);
+                        auto h = SDL_HapticOpen(event.jdevice.which);
+                        haptic[event.jdevice.which] = h;
+                        if(!h) {
+                            fprintf(stderr, "Unable to open haptic on gamepad\n");
+                        }
                     } else {
                         fprintf(stderr, "Unable to open gamepad %d: %s\n", event.jdevice.which, SDL_GetError());
                     }
