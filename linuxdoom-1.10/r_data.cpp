@@ -84,7 +84,7 @@ typedef struct {
 //
 typedef struct {
     char name[8];
-    boolean masked;
+    uint32_t masked;
     short width;
     short height;
     // as the OBSOLETE comment hints at, the columndirectory field is no longer used
