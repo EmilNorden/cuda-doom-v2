@@ -469,7 +469,7 @@ W_CacheLumpNum
 //
 void *
 W_CacheLumpName
-        (char *name,
+        (const char *name,
          int tag) {
     return W_CacheLumpNum(W_GetNumForName(name), tag);
 }

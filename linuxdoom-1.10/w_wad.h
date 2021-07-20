@@ -77,7 +77,7 @@ int	W_LumpLength (intptr_t lump);
 void    W_ReadLump (intptr_t lump, void *dest);
 
 void*	W_CacheLumpNum (intptr_t lump, int tag);
-void*	W_CacheLumpName (char* name, int tag);
+void*	W_CacheLumpName (const char* name, int tag);
 
 
 
