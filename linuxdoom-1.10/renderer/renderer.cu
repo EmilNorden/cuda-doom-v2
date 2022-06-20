@@ -77,11 +77,13 @@ trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, int depth, std:
     Intersection intersection;
     std::uint8_t palette_index;
     if (scene->intersect(ray, intersection)) {
+
         palette_index = intersection.texture->sample({intersection.u, intersection.v});
     } else {
-        auto pitch = glm::half_pi<float>() - glm::asin(-ray.direction().y);
-        auto yaw = fabs(std::atan2(ray.direction().x, ray.direction().z));
-        palette_index = device_textures[0]->sample({yaw, pitch / glm::pi<float>()});
+        palette_index = 0;
+        //auto pitch = glm::half_pi<float>() - glm::asin(-ray.direction().y);
+        //auto yaw = fabs(std::atan2(ray.direction().x, ray.direction().z));
+        //palette_index = device_textures[0]->sample({yaw, pitch / glm::pi<float>()});
     }
 
     return {
@@ -153,8 +155,7 @@ cudaRender(float *g_odata, Camera *camera, Scene *scene, RandomGeneratorPool *ra
     if (x < width && y < height) {
         auto ray = camera->cast_perturbed_ray(x, y, random);
 
-        //auto color = trace_ray<PathLength>(ray, scene, random, 3, palette, device_textures);
-        auto color = glm::vec3(1,1,0);
+        auto color = trace_ray<PathLength>(ray, scene, random, 3, palette, device_textures);
         color = glm::clamp(color, {0, 0, 0}, {1, 1, 1});
 
         glm::vec3 previous_color;

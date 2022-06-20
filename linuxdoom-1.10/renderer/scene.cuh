@@ -38,22 +38,22 @@ enum class SplitComparison {
 
 class Scene {
 public:
-    Scene(std::vector<Square> &walls, std::vector<Triangle> &floors_ceilings, std::vector<MapThing> &map_things);
+    Scene(std::vector<Square*> &walls, std::vector<Triangle*> &floors_ceilings, std::vector<MapThing*> &map_things);
 
     __device__ bool intersect(const Ray &ray, Intersection &intersection);
 
 
 private:
-    TreeNode<Square> *m_walls_root;
-    TreeNode<Triangle> *m_floors_ceilings_root;
-    TreeNode<MapThing> *m_map_things_root;
+    TreeNode<Square*> *m_walls_root;
+    TreeNode<Triangle*> *m_floors_ceilings_root;
+    TreeNode<MapThing*> *m_map_things_root;
 
     __device__ bool intersect_walls(const Ray &ray, Intersection &intersection);
     __device__ bool intersect_floors_and_ceilings(const Ray &ray, Intersection &intersection);
     __device__ bool intersect_things(const Ray &ray, Intersection &intersection);
 
     template <typename T>
-    void build_node(TreeNode<T> &node, std::vector<T> &items, Axis current_axis, bool valid_axes[3], size_t size_limit, const std::function<void(std::vector<T> &items, Axis axis)> &sort_callback, const std::function<glm::vec3(const T& median)> &median_callback, const std::function<SplitComparison(const T& item, Axis axis, float splitting_value)> &split_callback) {
+    void build_node(TreeNode<T> &node, std::vector<T> &items, Axis current_axis, bool valid_axes[3], size_t size_limit, const std::function<void(std::vector<T> &items, Axis axis)> &sort_callback, const std::function<glm::vec3(const T median)> &median_callback, const std::function<SplitComparison(const T item, Axis axis, float splitting_value)> &split_callback) {
         if(items.size() < size_limit) {
             cuda_assert(cudaMalloc(&node.items, sizeof(T) * items.size()));
             cuda_assert(cudaMemcpy(node.items, items.data(), sizeof(T) * items.size(), cudaMemcpyHostToDevice));
@@ -75,7 +75,7 @@ private:
         left_side.reserve(half_size);
         right_side.reserve(half_size);
 
-        for (auto &item: items) {
+        for (auto item: items) {
             auto result = split_callback(item, current_axis, splitting_value);
             if(result == SplitComparison::GreaterOrEqual || result == SplitComparison::Both) {
                 right_side.push_back(item);
@@ -101,7 +101,7 @@ private:
         build_node(*node.right, right_side, current_axis, valid_axes, size_limit,sort_callback, median_callback, split_callback);
     }
 
-    void build_walls_node(TreeNode<Square> &node, std::vector<Square> &walls, Axis current_axis);
+    void build_walls_node(TreeNode<Square*> &node, std::vector<Square*> &walls, Axis current_axis, bool valid_axes[3], size_t size_limit);
 };
 
 #endif

@@ -19,6 +19,6 @@ struct MapThing {
     }
 };
 
-__device__ bool intersects_map_thing(const Ray &ray, MapThing &thing, float &hit_distance, float &u, float &v);
+__device__ bool intersects_map_thing(const Ray &ray, MapThing *thing, float &hit_distance, float &u, float &v);
 
 #endif

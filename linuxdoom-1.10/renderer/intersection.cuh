@@ -7,6 +7,7 @@ struct Intersection {
     float u{};
     float v{};
     float distance{};
+    glm::vec3 world_normal;
 };
 
 #endif

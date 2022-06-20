@@ -34,6 +34,7 @@ static const char
 #include "p_local.h"
 
 #include "doomstat.h"
+#include "rt_raytracing.cuh"
 
 
 
@@ -156,6 +157,8 @@ void P_MovePlayer(player_t *player) {
         && player->mo->state == &states[S_PLAY]) {
         P_SetMobjState(player->mo, S_PLAY_RUN1);
     }
+
+    RT_UpdateCameraFromPlayer(&players[0]);
 }
 
 

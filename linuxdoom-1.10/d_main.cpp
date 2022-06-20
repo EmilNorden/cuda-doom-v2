@@ -577,7 +577,15 @@ extern boolean demorecording;
 
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_KEYDOWN) {
+            if(event.type == SDL_WINDOWEVENT) {
+                printf("window event %d\n", event.window.event);
+                switch(event.window.event) {
+                    case SDL_WINDOWEVENT_SIZE_CHANGED:
+                        RT_WindowChanged();
+                        break;
+                }
+            }
+            else if (event.type == SDL_KEYDOWN) {
                 handle_keydown(event.key.keysym.sym, (SDL_Keymod)event.key.keysym.mod);
             } else if (event.type == SDL_KEYUP) {
                 handle_keyup(event.key.keysym.sym);
@@ -1306,7 +1314,7 @@ void D_DoomMain(void) {
     ST_Init();
 
     printf("RT_Init: Init ray tracing subsystem.\n");
-    RT_Init();
+    RT_Init(wadfiles);
 
     // check for a driver that wants intermission stats
     p = M_CheckParm("-statcopy");

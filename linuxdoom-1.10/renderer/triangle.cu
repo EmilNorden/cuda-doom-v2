@@ -1,17 +1,18 @@
 #include "triangle.cuh"
 #include "ray.cuh"
+#include "cuda_utils.cuh"
 
 #define EPSILON 9.99999997475243E-07
 
-__device__ bool intersects_triangle(const Ray &ray, Triangle &triangle, float &hit_distance, float &u, float &v) {
-    auto v1 = triangle.v0;
+__device__ bool intersects_triangle(const Ray &ray, Triangle *triangle, float &hit_distance, float &u, float &v) {
+    auto v1 = triangle->v0;
 
     /*
      *             glm::vec3 e1 = v2 - v1;
             glm::vec3 e2 = v3 - v1;
      * */
-    glm::vec3 e1 = triangle.v1 - triangle.v0;
-    glm::vec3 e2 = triangle.v2 - triangle.v0;
+    glm::vec3 e1 = triangle->v1 - triangle->v0;
+    glm::vec3 e2 = triangle->v2 - triangle->v0;
 
     // Begin calculating determinant - also used to calculate u parameter
     glm::vec3 P = glm::cross(ray.direction(), e2); // m_direction.cross(e2);
@@ -138,10 +139,10 @@ bool tri_contains_other_verts_2d(const glm::vec2 &v0, const glm::vec2 &v1, const
     return false;
 }
 
-std::vector<Triangle> triangulate_polygon(const std::vector<glm::vec3> &polygon, DeviceTexture* texture) {
-    std::vector<Triangle> triangles;
+std::vector<Triangle*> triangulate_polygon(const std::vector<glm::vec3> &polygon, DeviceTexture* texture) {
+    std::vector<Triangle*> triangles;
     if (polygon.size() == 3) {
-        triangles.push_back(Triangle{polygon[0], polygon[1], polygon[2], texture});
+        triangles.push_back(create_device_type<Triangle>(polygon[0], polygon[1], polygon[2], texture));
     }
 
     auto polygon_size = polygon.size();
@@ -186,11 +187,11 @@ std::vector<Triangle> triangulate_polygon(const std::vector<glm::vec3> &polygon,
                 continue;
             }
 
-            triangles.push_back(Triangle{polygon[previous_index], polygon[i], polygon[next_index], texture});
+            triangles.push_back(create_device_type<Triangle>(polygon[previous_index], polygon[i], polygon[next_index], texture));
             any_clipped = true;
             clipped_vertices[i] = true;
             polygon_size -= 1;
-            printf("polygon size is now %lu, i is %d\n", polygon_size, i);
+            // printf("polygon size is now %lu, i is %d\n", polygon_size, i);
             if (polygon_size < 3) {
                 break;
             }

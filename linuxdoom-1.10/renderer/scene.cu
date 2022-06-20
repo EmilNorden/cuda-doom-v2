@@ -20,76 +20,38 @@ struct NodeSearchData {
     }
 };
 
-Scene::Scene(std::vector<Square> &walls, std::vector<Triangle> &floors_ceilings, std::vector<MapThing> &map_things) {
-    cuda_assert(cudaMallocManaged(&m_walls_root, sizeof(TreeNode<Square>)));
-    cuda_assert(cudaMallocManaged(&m_floors_ceilings_root, sizeof(TreeNode<Triangle>)));
-    cuda_assert(cudaMallocManaged(&m_map_things_root, sizeof(TreeNode<MapThing>)));
+Scene::Scene(std::vector<Square*> &walls, std::vector<Triangle*> &floors_ceilings, std::vector<MapThing*> &map_things) {
+    m_walls_root = create_device_type<TreeNode<Square*>>();
+    m_floors_ceilings_root = create_device_type<TreeNode<Triangle*>>();
+    m_map_things_root = create_device_type<TreeNode<MapThing*>>();
 
     std::cout << "Building scene with " << walls.size() << " walls, " << floors_ceilings.size()
               << " floor/ceiling triangles and " << map_things.size() << " things\n";
 
-    std::function<void(std::vector<Square> &, Axis axis)> wall_sort_callback = [](std::vector<Square> &items,
-                                                                                  Axis axis) {
-        std::sort(items.begin(), items.end(), [&](const Square &a, const Square &b) {
-            // Just compare top_left corner for now
-
-            return a.top_left[static_cast<int>(axis)] < b.top_left[static_cast<int>(axis)];
-        });
-    };
-
-    std::function<glm::vec3(const Square &median)> wall_median_callback = [](const Square &median) {
-        return median.top_left;
-    };
-
-    std::function<SplitComparison(const Square &item, Axis axis, float splitting_value)> wall_split_callback = [](
-            const Square &item, Axis axis, float splitting_value) {
-        auto v0 = item.top_left;
-        auto v1 = item.top_left + (item.horizontal_vec * item.horizontal_len);
-        auto v2 = item.top_left + (item.vertical_vec * item.vertical_len);
-
-        bool is_greater_or_equal = v0[axis] >= splitting_value ||
-                                   v1[axis] >= splitting_value ||
-                                   v2[axis] >= splitting_value;
-
-        bool is_less = v0[axis] <= splitting_value ||
-                       v1[axis] <= splitting_value ||
-                       v2[axis] <= splitting_value;
-
-        if (is_greater_or_equal && is_less) {
-            return SplitComparison::Both;
-        } else if (is_greater_or_equal) {
-            return SplitComparison::GreaterOrEqual;
-        } else {
-            return SplitComparison::Less;
-        }
-    };
 
     bool valid_axes[3] = {true, false, true};
     auto walls_copy = walls;
-    build_node(*m_walls_root, walls_copy, Axis::X, valid_axes, 150,
-               wall_sort_callback,
-               wall_median_callback,
-               wall_split_callback);
+    build_walls_node(*m_walls_root, walls_copy, Axis::X, valid_axes, 150);
 
-    std::function<void(std::vector<Triangle> &, Axis axis)> triangle_sort_callback = [](std::vector<Triangle> &items,
-                                                                                        Axis axis) {
-        std::sort(items.begin(), items.end(), [&](const Triangle &a, const Triangle &b) {
-            auto a_mid_point = (a.v0 + a.v1 + a.v2) / 3.0f;
-            auto b_mid_point = (b.v0 + b.v1 + b.v2) / 3.0f;
+    std::function<void(std::vector<Triangle*> &, Axis axis)> triangle_sort_callback = [](std::vector<Triangle*> &items,
+                                                                                         Axis axis) {
+        std::sort(items.begin(), items.end(), [&](const Triangle *a, const Triangle *b) {
+            auto a_mid_point = (a->v0 + a->v1 + a->v2) / 3.0f;
+            auto b_mid_point = (b->v0 + b->v1 + b->v2) / 3.0f;
 
             return a_mid_point[axis] < b_mid_point[axis];
         });
     };
 
-    std::function<glm::vec3(const Triangle &median)> triangle_median_callback = [](const Triangle &median) {
-        return median.v0;
+    std::function<glm::vec3(Triangle *median)> triangle_median_callback = [](const Triangle *median) {
+        return median->v0;
     };
 
-    std::function<SplitComparison(const Triangle &item, Axis axis, float splitting_value)> triangle_split_callback = [](
-            const Triangle &item, Axis axis, float splitting_value) {
-        auto v0 = item.v0;
-        auto v1 = item.v1;
-        auto v2 = item.v2;
+    std::function<SplitComparison(Triangle *item, Axis axis, float splitting_value)> triangle_split_callback = [](
+            const Triangle *item, Axis axis, float splitting_value) {
+        auto v0 = item->v0;
+        auto v1 = item->v1;
+        auto v2 = item->v2;
 
         bool is_greater_or_equal = v0[axis] >= splitting_value ||
                                    v1[axis] >= splitting_value ||
@@ -114,21 +76,21 @@ Scene::Scene(std::vector<Square> &walls, std::vector<Triangle> &floors_ceilings,
                triangle_median_callback,
                triangle_split_callback);
 
-    std::function<void(std::vector<MapThing> &, Axis axis)> things_sort_callback = [](std::vector<MapThing> &items,
-                                                                                      Axis axis) {
-        std::sort(items.begin(), items.end(), [&](const MapThing &a, const MapThing &b) {
-            return a.position[static_cast<int>(axis)] < b.position[static_cast<int>(axis)];
+    std::function<void(std::vector<MapThing*> &, Axis axis)> things_sort_callback = [](std::vector<MapThing*> &items,
+                                                                                       Axis axis) {
+        std::sort(items.begin(), items.end(), [&](const MapThing *a, const MapThing *b) {
+            return a->position[static_cast<int>(axis)] < b->position[static_cast<int>(axis)];
         });
     };
 
-    std::function<glm::vec3(const MapThing &median)> thing_median_callback = [](const MapThing &median) {
-        return median.position;
+    std::function<glm::vec3(MapThing *median)> thing_median_callback = [](MapThing *median) {
+        return median->position;
     };
 
-    std::function<SplitComparison(const MapThing &item, Axis axis, float splitting_value)> thing_split_callback = [](
-            const MapThing &item, Axis axis, float splitting_value) {
-        auto min_bounds = item.position - glm::vec3(item.max_size.x / 2.0f, 0, item.max_size.x / 2.0f);
-        auto max_bounds = item.position + glm::vec3(item.max_size.x / 2.0f, item.max_size.y, item.max_size.x / 2.0f);
+    std::function<SplitComparison(MapThing *item, Axis axis, float splitting_value)> thing_split_callback = [](
+            MapThing *item, Axis axis, float splitting_value) {
+        auto min_bounds = item->position - glm::vec3(item->max_size.x / 2.0f, 0, item->max_size.x / 2.0f);
+        auto max_bounds = item->position + glm::vec3(item->max_size.x / 2.0f, item->max_size.y, item->max_size.x / 2.0f);
 
         bool is_greater_or_equal = min_bounds[axis] >= splitting_value ||
                                    max_bounds[axis] >= splitting_value;
@@ -153,11 +115,11 @@ Scene::Scene(std::vector<Square> &walls, std::vector<Triangle> &floors_ceilings,
 }
 
 // TODO: Keep this here until i decide wether to keep the templated version. It's a mess.
-/*
-void Scene::build_walls_node(TreeNode<Square> &node, std::vector<Square> &walls, Axis current_axis) {
-    if (walls.size() < 1000) {
-        cuda_assert(cudaMalloc(&node.items, sizeof(Square) * walls.size()));
-        cuda_assert(cudaMemcpy(node.items, walls.data(), sizeof(Square) * walls.size(), cudaMemcpyHostToDevice));
+
+void Scene::build_walls_node(TreeNode<Square*> &node, std::vector<Square*> &walls, Axis current_axis, bool valid_axes[3], size_t size_limit) {
+    if (walls.size() < size_limit) {
+        cuda_assert(cudaMalloc(&node.items, sizeof(Square*) * walls.size()));
+        cuda_assert(cudaMemcpy(node.items, walls.data(), sizeof(Square*) * walls.size(), cudaMemcpyHostToDevice));
         node.item_count = walls.size();
         node.left = nullptr;
         node.right = nullptr;
@@ -166,36 +128,39 @@ void Scene::build_walls_node(TreeNode<Square> &node, std::vector<Square> &walls,
 
     auto axis = static_cast<int>(current_axis);
 
-    std::sort(walls.begin(), walls.end(), [&](const Square &a, const Square &b) {
+    std::sort(walls.begin(), walls.end(), [&](const Square *a, const Square *b) {
         // Just compare top_left corner for now
 
-        return a.top_left[axis] < b.top_left[axis];
+        return a->top_left[axis] < b->top_left[axis];
     });
 
     auto half_size = walls.size() / 2;
-    auto median_point = walls[half_size].top_left;
+    auto median_point = walls[half_size]->top_left;
     auto splitting_value = median_point[axis];
 
-    std::vector<Square> left_side;
-    std::vector<Square> right_side;
+    std::vector<Square*> left_side;
+    std::vector<Square*> right_side;
 
     left_side.reserve(half_size);
     right_side.reserve(half_size);
 
     for (auto &wall: walls) {
-        auto v0 = wall.top_left;
-        auto v1 = wall.top_left + (wall.horizontal_vec * wall.horizontal_len);
-        auto v2 = wall.top_left + (wall.vertical_vec * wall.vertical_len);
+        auto v0 = wall->top_left;
+        auto v1 = wall->top_left + (wall->horizontal_vec * wall->horizontal_len);
+        auto v2 = wall->top_left + (wall->vertical_vec * wall->vertical_len);
 
-        if (v0[axis] >= splitting_value ||
-            v1[axis] >= splitting_value ||
-            v2[axis] >= splitting_value) {
+        bool is_greater_or_equal = v0[axis] >= splitting_value ||
+                                   v1[axis] >= splitting_value ||
+                                   v2[axis] >= splitting_value;
+
+        bool is_less = v0[axis] <= splitting_value ||
+                       v1[axis] <= splitting_value ||
+                       v2[axis] <= splitting_value;
+
+        if (is_greater_or_equal) {
             right_side.push_back(wall);
         }
-
-        if (v0[axis] < splitting_value ||
-            v1[axis] < splitting_value ||
-            v2[axis] < splitting_value) {
+        if(is_less) {
             left_side.push_back(wall);
         }
     }
@@ -206,10 +171,15 @@ void Scene::build_walls_node(TreeNode<Square> &node, std::vector<Square> &walls,
     node.item_count = 0;
     cuda_assert(cudaMallocManaged(&node.left, sizeof(TreeNode<Square>)));
     cuda_assert(cudaMallocManaged(&node.right, sizeof(TreeNode<Square>)));
-    build_walls_node(*node.left, left_side, static_cast<Axis>((current_axis + 1) % 3));
-    build_walls_node(*node.right, right_side, static_cast<Axis>((current_axis + 1) % 3));
+
+    do {
+        current_axis = static_cast<Axis>((current_axis + 1) % 3);
+    } while(!valid_axes[current_axis]);
+
+    build_walls_node(*node.left, left_side, current_axis, valid_axes, size_limit);
+    build_walls_node(*node.right, right_side, current_axis, valid_axes, size_limit);
 }
-*/
+
 template<typename T>
 __device__ bool is_leaf(TreeNode<T> *node) {
     return node->items;
@@ -246,20 +216,23 @@ CompareRangeWithPlane(const Ray &ray, float tmin, float tmax, TreeNode<T> *node)
 }
 
 
-__device__ bool intersects_walls_node(const Ray &ray, TreeNode<Square> *node, Intersection &intersection, float &tmax) {
+__device__ bool intersects_walls_node(const Ray &ray, TreeNode<Square*> *node, Intersection &intersection, float tmax) {
     auto success = false;
     for (auto i = 0; i < node->item_count; ++i) {
         float hit_distance = 0.0f;
         float u = 0.0f;
         float v = 0.0f;
-        if (intersects_wall(ray, node->items[i], hit_distance, u, v) && hit_distance < tmax) {
-            if (node->items[i].texture->sample({u, v}) > 0xFF) {
+        glm::vec3 normal{};
+        if (intersects_wall(ray, node->items[i], hit_distance, u, v, normal) && hit_distance < tmax) {
+            if (node->items[i]->texture->sample({u, v}) > 0xFF) {
                 continue;
             }
             tmax = hit_distance;
+            intersection.distance = hit_distance;
             intersection.u = u;
             intersection.v = v;
-            intersection.texture = node->items[i].texture;
+            intersection.texture = node->items[i]->texture;
+            intersection.world_normal = normal;
             success = true;
         }
     }
@@ -268,7 +241,7 @@ __device__ bool intersects_walls_node(const Ray &ray, TreeNode<Square> *node, In
 }
 
 __device__ bool
-intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle> *node, Intersection &intersection, float &tmax) {
+intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle*> *node, Intersection &intersection, float tmax) {
     auto success = false;
     for (auto i = 0; i < node->item_count; ++i) {
         float hit_distance = 0.0f;
@@ -276,9 +249,18 @@ intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle> *node, In
         float v = 0.0f;
         if (intersects_triangle(ray, node->items[i], hit_distance, u, v) && hit_distance < tmax) {
             tmax = hit_distance;
+            intersection.distance = hit_distance;
             intersection.u = u;
             intersection.v = v;
-            intersection.texture = node->items[i].texture;
+            intersection.texture = node->items[i]->texture;
+            if(ray.direction().y >= 0.0f) {
+                // Going upwards, must have hit ceiling
+                intersection.world_normal = glm::vec3{0.0f, -1.0f, 0.0f};
+            }
+            else {
+                // Going downwards, must have hit floor
+                intersection.world_normal = glm::vec3{0.0f, -1.0f, 0.0f};
+            }
             success = true;
         }
     }
@@ -289,7 +271,7 @@ intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle> *node, In
 __device__ bool Scene::intersect_walls(const Ray &ray, Intersection &intersection) {
     constexpr int StackSize = 20;
 
-    DeviceStack<StackSize, NodeSearchData<Square>> nodes;
+    DeviceStack<StackSize, NodeSearchData<Square*>> nodes;
 
     nodes.push({
                        m_walls_root,
@@ -305,7 +287,6 @@ __device__ bool Scene::intersect_walls(const Ray &ray, Intersection &intersectio
 
         if (is_leaf(node)) {
             if (intersects_walls_node(ray, node, intersection, tmax)) {
-                intersection.distance = tmax;
                 return true;
             }
         } else {
@@ -338,7 +319,7 @@ __device__ bool Scene::intersect_walls(const Ray &ray, Intersection &intersectio
 __device__ bool Scene::intersect_floors_and_ceilings(const Ray &ray, Intersection &intersection) {
     constexpr int StackSize = 20;
 
-    DeviceStack<StackSize, NodeSearchData<Triangle>> nodes;
+    DeviceStack<StackSize, NodeSearchData<Triangle*>> nodes;
 
     nodes.push({
                        m_floors_ceilings_root,
@@ -354,7 +335,6 @@ __device__ bool Scene::intersect_floors_and_ceilings(const Ray &ray, Intersectio
 
         if (is_leaf(node)) {
             if (intersects_floors_and_ceilings_node(ray, node, intersection, tmax)) {
-                intersection.distance = tmax;
                 return true;
             }
         } else {
@@ -384,14 +364,14 @@ __device__ bool Scene::intersect_floors_and_ceilings(const Ray &ray, Intersectio
     return false;
 }
 
-__device__ bool intersects_map_things_node(const Ray& ray, TreeNode<MapThing> *node, Intersection &intersection, float &tmax) {
+__device__ bool intersects_map_things_node(const Ray& ray, TreeNode<MapThing*> *node, Intersection &intersection, float tmax) {
     auto success = false;
     for (auto i = 0; i < node->item_count; ++i) {
         float hit_distance = 0.0f;
         float u = 0.0f;
         float v = 0.0f;
         if (intersects_map_thing(ray, node->items[i], hit_distance, u, v) && hit_distance < tmax) {
-            auto texture = node->items[i].sprite.get_texture(node->items[i].frame,node->items[i].rotation);
+            auto texture = node->items[i]->sprite.get_texture(node->items[i]->frame,node->items[i]->rotation);
             if (texture->sample({u, v}) > 0xFF) {
                 continue;
             }
@@ -399,6 +379,8 @@ __device__ bool intersects_map_things_node(const Ray& ray, TreeNode<MapThing> *n
             intersection.u = u;
             intersection.v = v;
             intersection.texture = texture;
+            intersection.world_normal = glm::vec3(0,1,0); // TODO Dirty workaround for now
+            intersection.distance = hit_distance;
             success = true;
         }
     }
@@ -409,7 +391,7 @@ __device__ bool intersects_map_things_node(const Ray& ray, TreeNode<MapThing> *n
 __device__ bool Scene::intersect_things(const Ray &ray, Intersection &intersection) {
     constexpr int StackSize = 20;
 
-    DeviceStack<StackSize, NodeSearchData<MapThing>> nodes;
+    DeviceStack<StackSize, NodeSearchData<MapThing*>> nodes;
 
     nodes.push({
                        m_map_things_root,
@@ -425,7 +407,6 @@ __device__ bool Scene::intersect_things(const Ray &ray, Intersection &intersecti
 
         if (is_leaf(node)) {
             if (intersects_map_things_node(ray, node, intersection, tmax)) {
-                intersection.distance = tmax;
                 return true;
             }
         } else {
@@ -460,7 +441,8 @@ __device__ bool Scene::intersect(const Ray &ray, Intersection &intersection) {
 
     auto intersects_walls = intersect_walls(ray, intersection);
     auto intersects_floors_or_ceilings = intersect_floors_and_ceilings(ray, intersection);
-    auto intersects_things = intersect_things(ray, intersection);
+    //auto intersects_things = intersect_things(ray, intersection);
 
-    return intersects_walls || intersects_floors_or_ceilings || intersects_things;
+    //return intersects_walls || intersects_floors_or_ceilings || intersects_things;
+    return intersects_walls ||  intersects_floors_or_ceilings;
 }

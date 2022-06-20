@@ -8,6 +8,9 @@
 #include "renderer/scene.cuh"
 #include "rt_raytracing_opengl.cuh"
 #include "opengl/common.h"
+#include "wad/graphics_data.cuh"
+#include "wad/wad.cuh"
+#include <glm/gtx/rotate_vector.hpp>
 
 // CUDA <-> OpenGL interop
 namespace device {
@@ -19,14 +22,33 @@ namespace device {
     std::uint8_t *palette;
 }
 
+namespace detail {
+    wad::GraphicsData *graphics_data;
+    wad::Wad *wad;
+}
+
 
 bool ray_tracing_enabled;
 
 void print_cuda_device_info();
+
 void init_gl_buffers();
 
+Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data);
 
-void RT_Init() {
+void RT_InitGraphics(char **wadfiles) {
+    std::vector<std::filesystem::path> paths;
+    for (; *wadfiles; wadfiles++) {
+        paths.emplace_back(*wadfiles);
+    }
+
+    detail::wad = new wad::Wad(paths);
+    detail::graphics_data = new wad::GraphicsData(*detail::wad);
+}
+
+
+void RT_Init(char **wadfiles) {
+
     print_cuda_device_info();
     init_gl_buffers();
 
@@ -34,18 +56,33 @@ void RT_Init() {
 
     device::renderer = new Renderer(device::opengl_tex_cuda, 320, 240);
     device::camera = Camera::create();
+
+
+    //auto camera_position = glm::vec3(-800.0, 20.0, -100.0);
+    auto camera_position = glm::vec3(-765.315, 41.1001, -96.0371);// glm::vec3( -645.167, 58.7087, -412.004);
+    auto camera_direction = glm::normalize(glm::vec3(0.0, 0.0, 0.0f) - camera_position);
+    device::camera->set_position(camera_position);
+    device::camera->set_direction(camera_direction);
+    device::camera->set_up(glm::vec3(0.0, 1.0, 0.0));
+    device::camera->set_field_of_view(75.0 * (3.1415 / 180.0));
+    device::camera->set_blur_radius(0.0); // (0.03);
+    device::camera->set_focal_length(60.0);
+    device::camera->set_shutter_speed(0.0);
+    device::camera->set_resolution(glm::vec2(320, 240));
+    device::camera->update();
     std::cout << "Creating random states..." << std::flush;
     device::random = create_device_type<RandomGeneratorPool>(2048 * 256, 682856);
     std::cout << "Done." << std::endl;
     cuda_assert(cudaMalloc(&device::palette, 768));
 
 //std::vector<Square> &walls, std::vector<Triangle> &floors_ceilings, std::vector<MapThing> &map_things
-std::vector<Square> walls;
-std::vector<Triangle> fc;
-std::vector<MapThing> mt;
+    std::vector<Square *> walls;
+    std::vector<Triangle *> fc;
+    std::vector<MapThing *> mt;
     device::scene = create_device_type<Scene>(walls, fc, mt);
 
     RT_InitGl();
+    RT_InitGraphics(wadfiles);
 }
 
 
@@ -106,6 +143,7 @@ void init_gl_buffers() {
 void RT_Enable() {
     ray_tracing_enabled = true;
 }
+
 void RT_Disable() {
     ray_tracing_enabled = false;
 }
@@ -130,6 +168,38 @@ void RT_Present() {
     RT_RenderQuad();
 }
 
-void RT_UpdatePalette(byte* palette) {
+void RT_UpdatePalette(byte *palette) {
     cuda_assert(cudaMemcpy(device::palette, palette, 768, cudaMemcpyHostToDevice));
+}
+
+void RT_BuildScene() {
+    if (device::scene) {
+        cudaFree(device::scene);
+        device::scene = nullptr;
+    }
+
+    device::scene = RT_BuildScene(*detail::wad, *detail::graphics_data);
+}
+
+void RT_UpdateCameraFromPlayer(player_t *player) {
+
+    auto factor = static_cast<float>(player->mo->angle) / static_cast<float>(std::numeric_limits<unsigned>::max()) - 0.25f;
+    auto radians = -factor * glm::two_pi<float>();
+    auto direction = glm::normalize(glm::vec3(glm::sin(radians), 0, glm::cos(radians)));
+
+    // Z is up
+    device::camera->set_position({
+                                         static_cast<float>(player->mo->x) / 65536.0f,
+                                         static_cast<float>(player->viewz) / 65536.0f,
+                                         static_cast<float>(player->mo->y) / 65536.0f});
+
+    device::camera->set_direction(direction);
+    device::camera->update();
+}
+
+void RT_WindowChanged() {
+    init_gl_buffers();
+    RT_InitGl();
+    device::renderer = new Renderer(device::opengl_tex_cuda, 320, 240);
+    printf("GL BUFFERS RECREATED\n");
 }

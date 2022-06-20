@@ -153,6 +153,14 @@ namespace wad {
         throw std::runtime_error(fmt::format("Texture '{}' does not exist", name));
     }
 
+    const MapTexture &GraphicsData::get_texture(short number) const {
+        if(number >= m_textures.size()) {
+            throw std::runtime_error(fmt::format("Texture at index '{}' does not exist", number));
+        }
+
+        return m_textures[number];
+    }
+
     const Picture &GraphicsData::get_sprite(const std::string &name) const {
         for(auto &sprite : m_sprites) {
             if(sprite.name == name) {

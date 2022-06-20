@@ -28,26 +28,28 @@ namespace wad {
         };
     }
 
-    Wad::Wad(std::filesystem::path path) {
-        m_file = std::ifstream(path, std::ios::in | std::ios::binary);
+    Wad::Wad(const std::vector<std::filesystem::path> &paths) {
+        for(const auto& path : paths) {
+            m_file = std::ifstream(path, std::ios::in | std::ios::binary);
 
-        auto id = read_fixed_length_string<4>(m_file);
+            auto id = read_fixed_length_string<4>(m_file);
 
-        if (id != "PWAD" && id != "IWAD") {
-            std::cerr << "WAD does not contain PWAD or IWAD header. Things might not work properly." << std::endl;;
-        }
+            if (id != "PWAD" && id != "IWAD") {
+                std::cerr << "WAD does not contain PWAD or IWAD header. Things might not work properly." << std::endl;;
+            }
 
-        int numlumps;
-        m_file.read(reinterpret_cast<char *>(&numlumps), sizeof(int));
+            int numlumps;
+            m_file.read(reinterpret_cast<char *>(&numlumps), sizeof(int));
 
-        int infotableofs;
-        m_file.read(reinterpret_cast<char *>(&infotableofs), sizeof(int));
+            int infotableofs;
+            m_file.read(reinterpret_cast<char *>(&infotableofs), sizeof(int));
 
-        m_file.seekg(infotableofs);
+            m_file.seekg(infotableofs);
 
-        std::vector<impl::DirectoryEntry> directory;
-        for (int i = 0; i < numlumps; ++i) {
-            m_directory.push_back(read_directory_entry(m_file));
+            std::vector<impl::DirectoryEntry> directory;
+            for (int i = 0; i < numlumps; ++i) {
+                m_directory.push_back(read_directory_entry(m_file));
+            }
         }
     }
 

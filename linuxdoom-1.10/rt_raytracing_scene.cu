@@ -4,41 +4,152 @@
 #include "w_wad.h"
 #include "renderer/device_texture.cuh"
 #include "renderer/cuda_utils.cuh"
+#include "wad/graphics_data.cuh"
+#include "renderer/scene.cuh"
+#include "doomstat.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <algorithm>
+#include <set>
+
+struct SideTextures {
+    std::string upper_texture;
+    std::string lower_texture;
+    std::string middle_texture;
+};
+
+class TextureCache {
+public:
+    DeviceTexture *get_texture_for_flat(short flatnum) {
+        auto it = m_flat_textures.find(flatnum);
+        if (it != m_flat_textures.end()) {
+            return it->second;
+        }
+        return nullptr;
+    }
+
+    DeviceTexture *get_texture(short texture_number) {
+        auto it = m_textures.find(texture_number);
+        if (it != m_textures.end()) {
+            return it->second;
+        }
+        return nullptr;
+    }
+
+    void insert_flat_texture(short flatnum, DeviceTexture *texture) {
+        m_flat_textures[flatnum] = texture;
+    }
+
+    void insert_texture(short texture_number, DeviceTexture *texture) {
+        m_textures[texture_number] = texture;
+    }
+
+private:
+    std::unordered_map<short, DeviceTexture *> m_flat_textures;
+    std::unordered_map<short, DeviceTexture *> m_textures;
+
+};
+
+struct MovableSector {
+    std::vector<Square *> ceiling_walls;
+    std::vector<Square *> floor_walls;
+    std::vector<Triangle *> ceiling;
+    std::vector<Triangle *> floor;
+};
+
+
+struct SceneData {
+    std::vector<Square *> walls;
+    std::vector<Triangle *> triangles;
+    std::vector<MapThing *> things;
+    std::vector<DeviceTexture *> device_textures;
+    std::unordered_map<sector_t *, MovableSector> movable_sector;
+};
 
 typedef std::vector<glm::vec2> Polygon;
 
 bool on_segment(glm::vec2 p, glm::vec2 q, glm::vec2 r);
+
 int orientation(glm::vec2 p, glm::vec2 q, glm::vec2 r);
+
 bool lines_intersect(glm::vec2 p1, glm::vec2 q1, glm::vec2 p2, glm::vec2 q2);
+
 bool is_point_inside_polygon(const Polygon &container, const glm::vec2 &point);
+
 bool is_polygon_inside_other(const Polygon &container, const Polygon &test_polygon);
+
 void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_index, size_t child_polygon_index);
+
 bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon);
+
+void create_mesh_from_polygon(
+        sector_t *sector,
+        TextureCache &texture_cache,
+        SceneData &scene_data,
+        std::vector<glm::vec2> &polygon,
+        bool is_moving_sector,
+        int sector_number);
+
+DeviceTexture *get_device_texture(short texture_number,
+                                  wad::Wad &wad,
+                                  wad::GraphicsData &graphics_data,
+                                  TextureCache &texture_cache);
+
+DeviceTexture *get_device_texture_from_flat(short flatnum, TextureCache &texture_cache);
 
 DeviceTexture *create_device_texture_from_flat(intptr_t lump_number);
 
-void RT_BuildScene() {
+Square *create_sector_adjacent_wall(short texture_number,
+                                    wad::Wad &wad, wad::GraphicsData &graphics_data,
+                                    TextureCache &texture_cache,
+                                    int front_sector_height, int back_sector_height,
+                                    vertex_t *start_vertex,
+                                    vertex_t *end_vertex);
+
+Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData &graphics_data,
+                         TextureCache &texture_cache,
+                         int floor_height, int ceiling_height, vertex_t *start_vertex, vertex_t *end_vertex);
+
+float fixed_to_floating(int value) {
+    return static_cast<float>(value) / 65536.0f;
+}
+
+Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
+
+    TextureCache texture_cache;
+    SceneData scene_data;
+
+    std::set<sector_t *> moving_sectors;
+    line_t *line_ptr = lines;
+    for (int i = 0; i < numlines; i++, line_ptr++) {
+        if (line_ptr->special == 117) {
+            if (line_ptr->sidenum[1] == -1) { // Assuming sidenum[1] is left?
+                continue;
+            }
+
+            int asd = line_ptr->sidenum[1];
+            auto &side = sides[line_ptr->sidenum[1]];
+            moving_sectors.insert(side.sector);
+        }
+    }
+
     sector_t *sector_ptr = sectors;
+    for (int sector_number = 0; sector_number < numsectors; sector_number++, sector_ptr++) {
 
 
-    for(int i = 0; i < numsectors; i++, sector_ptr++) {
-
-        side_t *side_ptr = sides;
         std::vector<int> all_sides;
-        for(int j = 0; j < numsides; j++, side_ptr++) {
-            if(side_ptr->sector == sector_ptr) {
+        side_t *side_ptr = sides;
+        for (int j = 0; j < numsides; j++, side_ptr++) {
+            if (side_ptr->sector == sector_ptr) {
                 all_sides.push_back(j);
             }
         }
 
-        line_t *line_ptr = lines;
         std::vector<line_t> all_lines;
-        for(int j = 0; j < numlines; j++, line_ptr++) {
-            for(auto side: all_sides) {
-                if(line_ptr->sidenum[0] == side || line_ptr->sidenum[1] == side) { // 0 is right?
+        line_t *line_ptr = lines;
+        for (int j = 0; j < numlines; j++, line_ptr++) {
+            for (auto side: all_sides) {
+                if (line_ptr->sidenum[0] == side || line_ptr->sidenum[1] == side) { // 0 is right?
                     all_lines.push_back(*line_ptr);
                 }
             }
@@ -78,7 +189,7 @@ void RT_BuildScene() {
 
             Polygon polygon;
             for (auto &line: sorted_lines) {
-                polygon.emplace_back(glm::vec2{line.v1->x, line.v1->y});
+                polygon.emplace_back(glm::vec2{fixed_to_floating(line.v1->x), fixed_to_floating(line.v1->y)});
             }
             polygons.push_back(polygon);
         }
@@ -159,17 +270,258 @@ void RT_BuildScene() {
                 continue;
             }
 
-            /*create_mesh_from_polygon(
-                    sector0,
-                    wad,
-                    graphics,
-                    device_texture_lookup,
-                    data,
-                    polygons[i]
-            );*/
+            std::cout << "Sector " << sector_number << ": " << "Polygon (" << i << "/" << polygons.size() << ") size: "
+                      << polygons[i].size() << std::endl;
+            create_mesh_from_polygon(
+                    sector_ptr,
+                    texture_cache,
+                    scene_data,
+                    polygons[i],
+                    moving_sectors.find(sector_ptr) != moving_sectors.end(),
+                    sector_number);
         }
 
     }
+
+    // int i = -1;
+    line_ptr = lines;
+    for (int i = 0; i < numlines; i++, line_ptr++) {
+        //++i;
+
+        auto start_vertex = line_ptr->v1;
+        auto end_vertex = line_ptr->v2;
+
+        // REminder: line_ptr->sidenum[1] is left side
+        if (line_ptr->sidenum[0] > -1 && line_ptr->sidenum[1] > -1) {
+            auto left_side = &sides[line_ptr->sidenum[1]];
+            auto right_side = &sides[line_ptr->sidenum[0]];
+
+            auto left_sector = left_side->sector;
+            auto right_sector = right_side->sector;
+
+            auto left_upper_wall = create_sector_adjacent_wall(
+                    left_side->toptexture,
+                    wad,
+                    graphics_data,
+                    texture_cache,
+                    left_sector->ceilingheight,
+                    right_sector->ceilingheight,
+                    start_vertex,
+                    end_vertex);
+
+            if (left_upper_wall) {
+                // if (line.special_type == 117) { // Vertical door
+                if (moving_sectors.find(left_side->sector) != moving_sectors.end()) {
+                    scene_data.movable_sector[left_side->sector].ceiling_walls.push_back(left_upper_wall);
+                }
+
+                if (moving_sectors.find(right_side->sector) != moving_sectors.end()) {
+                    scene_data.movable_sector[right_side->sector].ceiling_walls.push_back(left_upper_wall);
+                }
+
+
+                scene_data.walls.push_back(left_upper_wall);
+            }
+
+            auto right_upper_wall = create_sector_adjacent_wall(
+                    right_side->toptexture,
+                    wad,
+                    graphics_data,
+                    texture_cache,
+                    left_sector->ceilingheight,
+                    right_sector->ceilingheight,
+                    start_vertex,
+                    end_vertex);
+
+            if (right_upper_wall) {
+                //if (line.special_type == 117) { // Vertical door
+                if (moving_sectors.find(left_side->sector) != moving_sectors.end()) {
+                    scene_data.movable_sector[left_side->sector].ceiling_walls.push_back(right_upper_wall);
+                }
+
+                if (moving_sectors.find(right_side->sector) != moving_sectors.end()) {
+                    scene_data.movable_sector[right_side->sector].ceiling_walls.push_back(right_upper_wall);
+                }
+
+                scene_data.walls.push_back(right_upper_wall);
+            }
+
+            auto left_lower_wall = create_sector_adjacent_wall(
+                    left_side->bottomtexture,
+                    wad,
+                    graphics_data,
+                    texture_cache,
+                    left_sector->floorheight,
+                    right_sector->floorheight,
+                    start_vertex,
+                    end_vertex);
+
+            if (left_lower_wall) {
+                //if (line.special_type == 117) { // Vertical door
+                if (moving_sectors.find(left_side->sector) != moving_sectors.end()) {
+                    scene_data.movable_sector[left_side->sector].floor_walls.push_back(left_lower_wall);
+                }
+
+                if (moving_sectors.find(right_side->sector) != moving_sectors.end()) {
+                    scene_data.movable_sector[right_side->sector].floor_walls.push_back(left_lower_wall);
+                }
+                scene_data.walls.push_back(left_lower_wall);
+            }
+            auto right_lower_wall = create_sector_adjacent_wall(
+                    right_side->bottomtexture,
+                    wad,
+                    graphics_data,
+                    texture_cache,
+                    left_sector->floorheight,
+                    right_sector->floorheight,
+                    start_vertex,
+                    end_vertex);
+
+            if (right_lower_wall) {
+                //if (line.special_type == 117) { // Vertical door
+                if (moving_sectors.find(left_side->sector) != moving_sectors.end()) {
+                    scene_data.movable_sector[left_side->sector].floor_walls.push_back(right_lower_wall);
+                }
+
+                if (moving_sectors.find(right_side->sector) != moving_sectors.end()) {
+                    scene_data.movable_sector[right_side->sector].floor_walls.push_back(right_lower_wall);
+                }
+                scene_data.walls.push_back(right_lower_wall);
+            }
+
+        }
+
+        // left side
+        if (line_ptr->sidenum[1] > -1) {
+            auto side = &sides[line_ptr->sidenum[1]];
+            auto sector = side->sector;
+
+            auto wall = create_main_wall(
+                    side->midtexture,
+                    wad,
+                    graphics_data,
+                    texture_cache,
+                    sector->floorheight,
+                    sector->ceilingheight,
+                    start_vertex,
+                    end_vertex);
+
+            if (wall) {
+                //if (line.special_type == 117) { // Vertical door
+                if (moving_sectors.find(side->sector) != moving_sectors.end()) {
+                    scene_data.movable_sector[side->sector].floor_walls.push_back(wall);
+                }
+                scene_data.walls.push_back(wall);
+            }
+
+            if (wall) {
+                scene_data.walls.push_back(wall);
+            }
+        }
+
+        if (line_ptr->sidenum[0] > -1) {
+            auto side = &sides[line_ptr->sidenum[0]];
+            auto sector = side->sector;
+
+            auto wall = create_main_wall(
+                    side->midtexture,
+                    wad,
+                    graphics_data,
+                    texture_cache,
+                    sector->floorheight,
+                    sector->ceilingheight,
+                    start_vertex,
+                    end_vertex);
+
+            if (wall) {
+                //if (line.special_type == 117) { // Vertical door
+                if (moving_sectors.find(side->sector) != moving_sectors.end()) {
+                    scene_data.movable_sector[side->sector].floor_walls.push_back(wall);
+                }
+                scene_data.walls.push_back(wall);
+            }
+
+            if (wall) {
+                scene_data.walls.push_back(wall);
+            }
+        }
+    }
+
+    return create_device_type<Scene>(scene_data.walls, scene_data.triangles, scene_data.things);
+}
+
+Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData &graphics_data,
+                         TextureCache &texture_cache,
+                         int floor_height, int ceiling_height, vertex_t *start_vertex, vertex_t *end_vertex) {
+    if (texture_number == 0) {
+        return nullptr;
+    }
+
+    auto start_x = fixed_to_floating(start_vertex->x);
+    auto start_y = fixed_to_floating(start_vertex->y);
+
+    auto end_x = fixed_to_floating(end_vertex->x);
+    auto end_y = fixed_to_floating(end_vertex->y);
+
+    auto bottom_left = glm::vec3(start_x, fixed_to_floating(floor_height), start_y);
+    auto top_left = glm::vec3(start_x, fixed_to_floating(ceiling_height), start_y);
+
+    auto bottom_right = glm::vec3(end_x, fixed_to_floating(floor_height), end_y);
+    auto top_right = glm::vec3(end_x, fixed_to_floating(ceiling_height), end_y);
+
+    auto texture = get_device_texture(texture_number, wad, graphics_data, texture_cache);
+
+    auto horizontal_len = glm::length(top_right - top_left);
+    auto vertical_len = glm::length(bottom_left - top_left);
+    auto uv_scale = glm::vec2(static_cast<float>(glm::length(top_right - top_left) / texture->width()),
+                              static_cast<float>(glm::length(bottom_left - top_left) / texture->height()));
+    uv_scale /= glm::vec2(horizontal_len, vertical_len);
+
+    return create_device_type<Square>(top_left, top_right - top_left, bottom_left - top_left, uv_scale, texture);
+}
+
+Square *create_sector_adjacent_wall(short texture_number,
+                                    wad::Wad &wad, wad::GraphicsData &graphics_data,
+                                    TextureCache &texture_cache,
+                                    int front_sector_height, int back_sector_height,
+                                    vertex_t *start_vertex,
+                                    vertex_t *end_vertex) {
+    if (texture_number == 0) {
+        return nullptr;
+    }
+    if (front_sector_height == back_sector_height) {
+        return nullptr;
+    }
+
+    auto lower_height = fixed_to_floating(front_sector_height);
+    auto higher_height = fixed_to_floating(back_sector_height);
+    if (lower_height > higher_height) {
+        std::swap(lower_height, higher_height);
+    }
+
+    auto start_x = fixed_to_floating(start_vertex->x);
+    auto start_y = fixed_to_floating(start_vertex->y);
+
+    auto end_x = fixed_to_floating(end_vertex->x);
+    auto end_y = fixed_to_floating(end_vertex->y);
+
+    auto bottom_left = glm::vec3(start_x, lower_height, start_y);
+    auto top_left = glm::vec3(start_x, higher_height, start_y);
+
+    auto bottom_right = glm::vec3(end_x, lower_height, end_y);
+    auto top_right = glm::vec3(end_x, higher_height, end_y);
+
+    auto texture = get_device_texture(texture_number, wad, graphics_data, texture_cache);
+
+    auto horizontal_len = glm::length(top_right - top_left);
+    auto vertical_len = glm::length(bottom_left - top_left);
+    auto uv_scale = glm::vec2(static_cast<float>(glm::length(top_right - top_left) / texture->width()),
+                              static_cast<float>(glm::length(bottom_left - top_left) / texture->height()));
+    uv_scale /= glm::vec2(horizontal_len, vertical_len);
+
+
+    return create_device_type<Square>(top_left, top_right - top_left, bottom_left - top_left, uv_scale,
+                                      texture);
 }
 
 // Given three collinear points p, q, r, the function checks if
@@ -329,86 +681,102 @@ bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon) {
 
     return total_sum >= 0.0f;
 }
-/*
+
 void create_mesh_from_polygon(
-        wad::Sector &sector,
-        wad::Wad &wad,
-        wad::GraphicsData &graphics_data,
-        std::unordered_map<std::string, size_t> &device_texture_lookup,
-        WadData &data,
-        std::vector<glm::vec2> &polygon) {
+        sector_t *sector,
+        TextureCache &texture_cache,
+        SceneData &scene_data,
+        std::vector<glm::vec2> &polygon,
+        bool is_moving_sector,
+        int sector_number) {
+
+    auto foo = is_triangle_cw_winding(polygon[0], polygon[1], polygon[2]);
+    auto bar = is_polygon_cw_winding(polygon);
 
     if (!is_polygon_cw_winding(polygon)) {
         std::reverse(polygon.begin(), polygon.end());
     }
 
-    auto floor_texture = get_device_texture(sector.floor_texture, wad, graphics_data,
-                                            data.device_textures, device_texture_lookup, true);
+    auto floor_texture = get_device_texture_from_flat(sector->floorpic, texture_cache);
+    /*auto floor_texture = get_device_texture(sector.floor_texture, wad, graphics_data,
+                                            scene_data.device_textures, device_texture_lookup, true);*/
 
 
     std::vector<glm::vec3> polys3d;
     // polys3d.reserve(polygon.size());
     for (auto &p: polygon) {
-        polys3d.emplace_back(p.x, sector.floor_height, p.y);
+        polys3d.emplace_back(p.x, fixed_to_floating(sector->floorheight), p.y);
     }
     auto triangles = triangulate_polygon(polys3d, floor_texture);
 
-    data.triangles.insert(data.triangles.end(), triangles.begin(), triangles.end());
+    if (is_moving_sector) {
+        auto &movable_sector = scene_data.movable_sector[sector];
+        movable_sector.floor.insert(movable_sector.floor.end(), triangles.begin(), triangles.end());
+    }
 
-    if (sector.ceiling_texture != "-" && sector.ceiling_texture != "F_SKY1") {
-        auto ceiling_texture = get_device_texture(sector.ceiling_texture, wad, graphics_data,
-                                                  data.device_textures, device_texture_lookup,
-                                                  true);
+    scene_data.triangles.insert(scene_data.triangles.end(), triangles.begin(), triangles.end());
+
+    if (sector->ceilingpic != skyflatnum) {//sector.ceiling_texture != "F_SKY1") {
+        auto ceiling_texture = get_device_texture_from_flat(sector->ceilingpic, texture_cache);
+        /*auto ceiling_texture = get_device_texture(sector.ceiling_texture, wad, graphics_data,
+                                                  scene_data.device_textures, device_texture_lookup,
+                                                  true);*/
+
+
+        std::vector<Triangle *> ceiling_triangles;
         for (auto &triangle: triangles) {
-            triangle.v0.y = triangle.v1.y = triangle.v2.y = sector.ceiling_height;
-            triangle.texture = ceiling_texture;
+            auto ceiling_triangle = create_device_type<Triangle>(triangle->v0, triangle->v1, triangle->v2,
+                                                                 ceiling_texture);
+            ceiling_triangle->v0.y = ceiling_triangle->v1.y = ceiling_triangle->v2.y = fixed_to_floating(
+                    sector->ceilingheight);
+            ceiling_triangles.push_back(ceiling_triangle);
         }
 
-        data.triangles.insert(data.triangles.end(), triangles.begin(), triangles.end());
+        if (is_moving_sector) {
+            auto &movable_sector = scene_data.movable_sector[sector];
+            movable_sector.ceiling.insert(movable_sector.ceiling.end(), triangles.begin(), triangles.end());
+        }
+
+        scene_data.triangles.insert(scene_data.triangles.end(), ceiling_triangles.begin(), ceiling_triangles.end());
     }
 }
-*/
 
-/*
-DeviceTexture *get_device_texture(const std::string &texture_name,
+DeviceTexture *get_device_texture(short texture_number,
                                   wad::Wad &wad,
                                   wad::GraphicsData &graphics_data,
-                                  std::vector<DeviceTexture *> &device_textures,
-                                  std::unordered_map<std::string, size_t> &texture_lookup,
-                                  bool is_flat) {
-    auto it = texture_lookup.find(texture_name);
-    if (it != texture_lookup.end()) {
-        return device_textures[it->second];
+                                  TextureCache &texture_cache) {
+    auto texture = texture_cache.get_texture(texture_number);
+    if (texture) {
+        return texture;
     }
-
-    DeviceTexture *device_texture;
-
     size_t texture_width{};
     size_t texture_height{};
-    if (is_flat) {
-        auto lump = W_GetNumForName(texture_name.c_str());
-        device_texture = create_device_texture_from_flat(lump);
-    } else {
-        if (texture_name == "A-VINE3") {
-            int foo = 2;
-        }
-        auto texture_num = R_TextureNumForName(texture_name.c_str());
-        const auto &tex = graphics_data.get_texture(texture_name);
-        // R_CheckTextureNumForName(texture_name.c_str());
-        device_texture = create_device_texture_from_map_texture(wad, tex, graphics_data.patch_names());
+
+
+    const auto &tex = graphics_data.get_texture(texture_number);
+    auto pixels = tex.get_pixels(wad, graphics_data.patch_names());
+    texture = create_device_type<DeviceTexture>(pixels, tex.width(), tex.height());
+
+    texture_cache.insert_texture(texture_number, texture);
+
+    return texture;
+}
+
+DeviceTexture *get_device_texture_from_flat(short flatnum, TextureCache &texture_cache) {
+    auto texture = texture_cache.get_texture_for_flat(flatnum);
+    if (texture) {
+        return texture;
     }
 
+    texture = create_device_texture_from_flat(firstflat + flatnum);
+    texture_cache.insert_flat_texture(flatnum, texture);
 
-    auto new_index = device_textures.size();
-    device_textures.push_back(device_texture);
-    texture_lookup.insert({texture_name, new_index});
-
-    return device_texture;
+    return texture;
 }
 
 DeviceTexture *create_device_texture_from_flat(intptr_t lump_number) {
     auto lump_size = W_LumpLength(lump_number);
-    auto lump_data = reinterpret_cast<unsigned char*>(W_CacheLumpNum(lump_number, PU_CACHE));
+    auto lump_data = reinterpret_cast<unsigned char *>(W_CacheLumpNum(lump_number, PU_CACHE));
 
     std::vector<std::uint16_t> pixels(lump_size, 0);
     for (int i = 0; i < lump_size; ++i) {
@@ -427,4 +795,3 @@ DeviceTexture *create_device_texture_from_map_texture(wad::Wad &wad, const wad::
     return create_device_type<DeviceTexture>(pixels, texture.width(),
                                              texture.height());
 }
- */

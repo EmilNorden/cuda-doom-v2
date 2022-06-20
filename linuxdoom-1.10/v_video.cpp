@@ -767,7 +767,7 @@ void V_ToggleFullScreen() {
     unsigned int is_fullscreen = SDL_GetWindowFlags(window) & fullscreen_flag;
 
     SDL_DestroyWindow(window);
-    init_sdl_window(is_fullscreen ? false : true);
+    init_sdl_window(is_fullscreen == 0);
 
     // TODO Cleanup buffers before recreating them
     init_gl_buffers();

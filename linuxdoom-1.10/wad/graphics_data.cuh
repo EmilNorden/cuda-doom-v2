@@ -58,8 +58,9 @@ namespace wad {
         [[nodiscard]] const std::array<std::uint8_t, 14*768>& palette() const { return m_palette; }
 
         [[nodiscard]] const MapTexture &get_texture(std::string_view name) const;
+        [[nodiscard]] const MapTexture &get_texture(short number) const;
 
-        const Picture& get_sprite(const std::string &name) const;
+        [[nodiscard]] const Picture& get_sprite(const std::string &name) const;
 
     private:
         std::vector<MapTexture> m_textures;

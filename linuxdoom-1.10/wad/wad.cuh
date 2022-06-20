@@ -28,7 +28,7 @@ namespace wad {
 
     class Wad {
     public:
-        explicit Wad(std::filesystem::path path);
+        explicit Wad(const std::vector<std::filesystem::path> &paths);
 
         [[nodiscard]] std::optional<int> get_lump_number(std::string_view name) const;
 
