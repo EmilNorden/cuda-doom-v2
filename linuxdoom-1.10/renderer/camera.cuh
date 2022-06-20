@@ -55,7 +55,10 @@ public:
 
     [[nodiscard]] bool needs_update() const { return m_needs_update; }
 
-    __device__ __host__ void update() {
+    __device__ __host__ bool update() {
+        if(!m_needs_update) {
+            return false;
+        }
         m_needs_update = false;
         const float distance =  10.0;
 
@@ -84,6 +87,8 @@ public:
 
         m_pixel_width = (float) (image_plane_width / (float) m_resolution.x);
         m_pixel_height = (float) (image_plane_height / (float) m_resolution.y);
+
+        return true;
     }
 
     [[nodiscard]] __device__ Ray cast_ray(size_t x, size_t y) const;

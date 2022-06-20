@@ -25,6 +25,7 @@ namespace device {
 namespace detail {
     wad::GraphicsData *graphics_data;
     wad::Wad *wad;
+    size_t current_sample;
 }
 
 
@@ -54,6 +55,7 @@ void RT_Init(char **wadfiles) {
 
     cudaDeviceSetLimit(cudaLimitStackSize, 2048);
 
+    detail::current_sample = 0;
     device::renderer = new Renderer(device::opengl_tex_cuda, 320, 240);
     device::camera = Camera::create();
 
@@ -65,7 +67,7 @@ void RT_Init(char **wadfiles) {
     device::camera->set_direction(camera_direction);
     device::camera->set_up(glm::vec3(0.0, 1.0, 0.0));
     device::camera->set_field_of_view(75.0 * (3.1415 / 180.0));
-    device::camera->set_blur_radius(0.0); // (0.03);
+    device::camera->set_blur_radius(3.0); // (0.03);
     device::camera->set_focal_length(60.0);
     device::camera->set_shutter_speed(0.0);
     device::camera->set_resolution(glm::vec2(320, 240));
@@ -157,8 +159,9 @@ void RT_RenderSample() {
             device::camera,
             device::scene,
             device::random,
-            device::palette, nullptr /*This should be needed anymore, just fix sky texture */, 320, 240, 0);
-
+            device::palette, nullptr /*This should be needed anymore, just fix sky texture */, 320, 240,
+            detail::current_sample);
+    detail::current_sample++;
 }
 
 void RT_Present() {
@@ -183,7 +186,8 @@ void RT_BuildScene() {
 
 void RT_UpdateCameraFromPlayer(player_t *player) {
 
-    auto factor = static_cast<float>(player->mo->angle) / static_cast<float>(std::numeric_limits<unsigned>::max()) - 0.25f;
+    auto factor =
+            static_cast<float>(player->mo->angle) / static_cast<float>(std::numeric_limits<unsigned>::max()) - 0.25f;
     auto radians = -factor * glm::two_pi<float>();
     auto direction = glm::normalize(glm::vec3(glm::sin(radians), 0, glm::cos(radians)));
 
@@ -194,7 +198,9 @@ void RT_UpdateCameraFromPlayer(player_t *player) {
                                          static_cast<float>(player->mo->y) / 65536.0f});
 
     device::camera->set_direction(direction);
-    device::camera->update();
+    if (device::camera->update()) {
+        detail::current_sample = 0;
+    }
 }
 
 void RT_WindowChanged() {
