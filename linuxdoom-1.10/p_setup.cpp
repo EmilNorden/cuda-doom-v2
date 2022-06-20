@@ -44,6 +44,7 @@ static const char
 #include "s_sound.h"
 
 #include "doomstat.h"
+#include "rt_raytracing.cuh"
 
 
 void P_SpawnMapThing(mapthing_t *mthing);
@@ -642,7 +643,7 @@ P_SetupLevel
         R_PrecacheLevel();
 
     //printf ("free memory: 0x%x\n", Z_FreeMemory());
-
+    RT_BuildScene();
 }
 
 

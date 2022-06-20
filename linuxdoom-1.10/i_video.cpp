@@ -60,6 +60,7 @@ static const char
 #include "d_main.h"
 
 #include "doomdef.h"
+#include "rt_raytracing.cuh"
 
 #define POINTER_WARP_COUNTDOWN    1
 
@@ -348,7 +349,13 @@ void I_StartTic(void) {
 // I_FinishUpdate
 //
 void I_FinishUpdate(void) {
-    V_Render();
+    if(RT_IsEnabled()) {
+        RT_Present();
+    }
+    else {
+        V_Render();
+    }
+
     V_Swap();
 /*
     static int	lasttic;
@@ -582,6 +589,7 @@ void UploadNewPalette(Colormap cmap, byte *palette)
 void I_SetPalette(byte *palette) {
     int ff = 34;
     V_UpdatePalette(palette);
+    RT_UpdatePalette(palette);
     /*
       UploadNewPalette(X_cmap, palette);
       */

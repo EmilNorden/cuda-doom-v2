@@ -79,6 +79,8 @@ static const char rcsid[] = "$Id: d_main.c,v 1.8 1997/02/03 22:45:09 b1 Exp $";
 
 #include "d_main.h"
 
+#include "rt_raytracing.cuh"
+
 #include <FreeImage.h>
 
 //
@@ -287,6 +289,15 @@ void handle_keydown(SDL_Keycode key, SDL_Keymod modifiers) {
 void handle_keyup(SDL_Keycode key) {
     event_t event;
 
+    if(key == SDLK_F12) {
+        if(RT_IsEnabled()) {
+            RT_Disable();
+        }
+        else {
+            RT_Enable();
+        }
+    }
+
     event.type = ev_keyup;
     event.data1 = sdl_to_doom_key(key);
     D_PostEvent(&event);
@@ -447,8 +458,15 @@ void D_Display(void) {
     }
 
     // draw the view directly
-    if (gamestate == GS_LEVEL && !automapactive && gametic)
-        R_RenderPlayerView(&players[displayplayer]);
+    if (gamestate == GS_LEVEL && !automapactive && gametic) {
+        if(RT_IsEnabled()) {
+            RT_RenderSample();
+        }
+        else {
+            R_RenderPlayerView(&players[displayplayer]);
+        }
+
+    }
 
     if (gamestate == GS_LEVEL && gametic)
         HU_Drawer();
@@ -1286,6 +1304,9 @@ void D_DoomMain(void) {
 
     printf("ST_Init: Init status bar.\n");
     ST_Init();
+
+    printf("RT_Init: Init ray tracing subsystem.\n");
+    RT_Init();
 
     // check for a driver that wants intermission stats
     p = M_CheckParm("-statcopy");

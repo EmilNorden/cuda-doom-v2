@@ -153,6 +153,7 @@ int *channelleftvol_lookup[NUM_CHANNELS];
 int *channelrightvol_lookup[NUM_CHANNELS];
 
 
+extern int    errno;
 //
 // Safe ioctl, convenience.
 //
@@ -162,7 +163,6 @@ myioctl
          int command,
          int *arg) {
     int rc;
-    extern int    errno;
 
     rc = ioctl(fd, command, arg);
     if (rc < 0) {
