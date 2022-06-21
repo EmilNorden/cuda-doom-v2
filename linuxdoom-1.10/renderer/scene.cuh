@@ -38,15 +38,18 @@ enum class SplitComparison {
 
 class Scene {
 public:
-    Scene(std::vector<Square*> &walls, std::vector<Triangle*> &floors_ceilings, std::vector<MapThing*> &map_things);
+    Scene(std::vector<Square*> &walls, std::vector<Triangle*> &floors_ceilings, std::vector<MapThing*> &map_things, DeviceTexture *sky);
 
     __device__ bool intersect(const Ray &ray, Intersection &intersection);
+
+    [[nodiscard]] __device__ const DeviceTexture *sky() const { return m_sky; }
 
 
 private:
     TreeNode<Square*> *m_walls_root;
     TreeNode<Triangle*> *m_floors_ceilings_root;
     TreeNode<MapThing*> *m_map_things_root;
+    DeviceTexture *m_sky;
 
     __device__ bool intersect_walls(const Ray &ray, Intersection &intersection);
     __device__ bool intersect_floors_and_ceilings(const Ray &ray, Intersection &intersection);

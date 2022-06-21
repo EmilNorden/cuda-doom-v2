@@ -20,7 +20,8 @@ struct NodeSearchData {
     }
 };
 
-Scene::Scene(std::vector<Square*> &walls, std::vector<Triangle*> &floors_ceilings, std::vector<MapThing*> &map_things) {
+Scene::Scene(std::vector<Square*> &walls, std::vector<Triangle*> &floors_ceilings, std::vector<MapThing*> &map_things, DeviceTexture *sky)
+    : m_sky(sky) {
     m_walls_root = create_device_type<TreeNode<Square*>>();
     m_floors_ceilings_root = create_device_type<TreeNode<Triangle*>>();
     m_map_things_root = create_device_type<TreeNode<MapThing*>>();

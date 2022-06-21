@@ -14,7 +14,6 @@ class Scene;
 
 class RandomGeneratorPool;
 
-class DeviceTexture;
 
 class Renderer {
 public:
@@ -26,7 +25,7 @@ public:
 
     Renderer &operator=(const Renderer &) = delete;
 
-    void render(Camera *camera, Scene *scene, RandomGeneratorPool *random, std::uint8_t *palette, DeviceTexture **device_textures, int width, int height, size_t sample);
+    void render(Camera *camera, Scene *scene, RandomGeneratorPool *random, std::uint8_t *palette, int width, int height, size_t sample);
 
     void render(int width, int height, const Camera &camera, const Scene &scene);
 

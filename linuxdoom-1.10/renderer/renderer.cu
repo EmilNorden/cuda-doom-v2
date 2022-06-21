@@ -68,8 +68,7 @@ generate_unit_vector_in_cone(const glm::vec3 &cone_direction, float cone_angle, 
 
 template<int N>
 __device__ glm::vec3
-trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, int depth, std::uint8_t *palette,
-          DeviceTexture **device_textures) {
+trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, int depth, std::uint8_t *palette) {
     if (depth == 0) {
         return glm::vec3(1, 1, 0);
     }
@@ -80,10 +79,9 @@ trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, int depth, std:
 
         palette_index = intersection.texture->sample({intersection.u, intersection.v});
     } else {
-        palette_index = 0;
-        //auto pitch = glm::half_pi<float>() - glm::asin(-ray.direction().y);
-        //auto yaw = fabs(std::atan2(ray.direction().x, ray.direction().z));
-        //palette_index = device_textures[0]->sample({yaw, pitch / glm::pi<float>()});
+        auto pitch = glm::half_pi<float>() - glm::asin(-ray.direction().y);
+        auto yaw = fabs(std::atan2(ray.direction().x, ray.direction().z));
+        palette_index = scene->sky()->sample({yaw, pitch / glm::pi<float>()});
     }
 
     return {
@@ -133,8 +131,7 @@ trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, int depth, std:
 }
 
 __global__ void
-cudaRender(float *g_odata, Camera *camera, Scene *scene, RandomGeneratorPool *random_pool, std::uint8_t *palette,
-           DeviceTexture **device_textures, int width, int height,
+cudaRender(float *g_odata, Camera *camera, Scene *scene, RandomGeneratorPool *random_pool, std::uint8_t *palette, int width, int height,
            size_t sample) {
     constexpr int PathLength = 1;
 
@@ -155,7 +152,7 @@ cudaRender(float *g_odata, Camera *camera, Scene *scene, RandomGeneratorPool *ra
     if (x < width && y < height) {
         auto ray = camera->cast_perturbed_ray(x, y, random);
 
-        auto color = trace_ray<PathLength>(ray, scene, random, 3, palette, device_textures);
+        auto color = trace_ray<PathLength>(ray, scene, random, 3, palette);
         color = glm::clamp(color, {0, 0, 0}, {1, 1, 1});
 
         glm::vec3 previous_color;
@@ -168,11 +165,10 @@ cudaRender(float *g_odata, Camera *camera, Scene *scene, RandomGeneratorPool *ra
 
 }
 
-void Renderer::render(Camera *camera, Scene *scene, RandomGeneratorPool *random, std::uint8_t *palette,
-                      DeviceTexture **device_textures, int width, int height, size_t sample) {
+void Renderer::render(Camera *camera, Scene *scene, RandomGeneratorPool *random, std::uint8_t *palette, int width, int height, size_t sample) {
     dim3 block(16, 16, 1);
     dim3 grid(std::ceil(width / (float) block.x), std::ceil(height / (float) block.y), 1);
-    cudaRender<<<grid, block>>>((float *) m_cuda_render_buffer, camera, scene, random, palette, device_textures, width,
+    cudaRender<<<grid, block>>>((float *) m_cuda_render_buffer, camera, scene, random, palette, width,
                                 height, sample);
 
     cudaArray *texture_ptr;

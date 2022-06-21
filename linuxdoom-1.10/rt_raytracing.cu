@@ -67,7 +67,7 @@ void RT_Init(char **wadfiles) {
     device::camera->set_direction(camera_direction);
     device::camera->set_up(glm::vec3(0.0, 1.0, 0.0));
     device::camera->set_field_of_view(75.0 * (3.1415 / 180.0));
-    device::camera->set_blur_radius(3.0); // (0.03);
+    device::camera->set_blur_radius(0.0); // (0.03);
     device::camera->set_focal_length(60.0);
     device::camera->set_shutter_speed(0.0);
     device::camera->set_resolution(glm::vec2(320, 240));
@@ -81,7 +81,7 @@ void RT_Init(char **wadfiles) {
     std::vector<Square *> walls;
     std::vector<Triangle *> fc;
     std::vector<MapThing *> mt;
-    device::scene = create_device_type<Scene>(walls, fc, mt);
+    device::scene = create_device_type<Scene>(walls, fc, mt, nullptr);
 
     RT_InitGl();
     RT_InitGraphics(wadfiles);
@@ -159,7 +159,9 @@ void RT_RenderSample() {
             device::camera,
             device::scene,
             device::random,
-            device::palette, nullptr /*This should be needed anymore, just fix sky texture */, 320, 240,
+            device::palette,
+            320,
+            240,
             detail::current_sample);
     detail::current_sample++;
 }

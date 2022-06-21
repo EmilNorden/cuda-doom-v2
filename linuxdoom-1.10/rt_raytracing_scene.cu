@@ -7,6 +7,7 @@
 #include "wad/graphics_data.cuh"
 #include "renderer/scene.cuh"
 #include "doomstat.h"
+#include "r_sky.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <algorithm>
@@ -447,7 +448,9 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
         }
     }
 
-    return create_device_type<Scene>(scene_data.walls, scene_data.triangles, scene_data.things);
+    auto sky_texture = get_device_texture(skytexture, wad, graphics_data, texture_cache);
+
+    return create_device_type<Scene>(scene_data.walls, scene_data.triangles, scene_data.things, sky_texture);
 }
 
 Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData &graphics_data,
