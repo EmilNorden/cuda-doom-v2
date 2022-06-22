@@ -31,6 +31,8 @@ static const char
 // State.
 #include "doomstat.h"
 #include "r_state.h"
+#include "rt_entities.cuh"
+#include "rt_raytracing.cuh"
 
 byte *save_p;
 
@@ -276,13 +278,18 @@ void P_UnArchiveThinkers(void) {
                 if (mobj->player) {
                     mobj->player = &players[(size_t) mobj->player - 1];
                     mobj->player->mo = mobj;
+                    mobj->scene_entity = nullptr;
                 }
                 P_SetThingPosition(mobj);
                 mobj->info = &mobjinfo[mobj->type];
                 mobj->floorz = mobj->subsector->sector->floorheight;
                 mobj->ceilingz = mobj->subsector->sector->ceilingheight;
                 mobj->thinker.function.acp1 = (actionf_p1) P_MobjThinker;
-                mobj->scene_entity = nullptr; // TODO: Somehow we need to restore state here
+                if(!mobj->player) {
+                    mobj->scene_entity = RT_CreateMapThing(mobj->type, mobj);
+                    RT_AttachToScene(mobj->scene_entity);
+                }
+
                 P_AddThinker(&mobj->thinker);
                 break;
             }

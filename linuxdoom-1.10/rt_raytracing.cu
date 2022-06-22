@@ -29,9 +29,9 @@ namespace detail {
     wad::Wad *wad;
     size_t current_sample;
     bool has_pending_entities = false;
-    std::vector<SceneEntity*> pending_attach_entities;
-    std::vector<SceneEntity*> pending_detach_entities;
-    std::vector<SceneEntity*> entities;
+    std::vector<SceneEntity *> pending_attach_entities;
+    std::vector<SceneEntity *> pending_detach_entities;
+    std::vector<SceneEntity *> entities;
 }
 
 
@@ -42,7 +42,10 @@ void print_cuda_device_info();
 void init_gl_buffers();
 
 Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data);
+
 void RT_ApplyPendingEntities();
+
+void RT_SwapRemoveEntity(std::vector<SceneEntity *> &collection, SceneEntity *entity_to_remove);
 
 void RT_InitGraphics(char **wadfiles) {
     std::vector<std::filesystem::path> paths;
@@ -163,7 +166,7 @@ bool RT_IsEnabled() {
 }
 
 void RT_RenderSample() {
-    if(detail::has_pending_entities) {
+    if (detail::has_pending_entities) {
         RT_ApplyPendingEntities();
     }
 
@@ -225,7 +228,7 @@ void RT_WindowChanged() {
 }
 
 void RT_AttachToScene(SceneEntity *entity) {
-    if(!entity){
+    if (!entity) {
         return;
     }
 
@@ -234,7 +237,7 @@ void RT_AttachToScene(SceneEntity *entity) {
 }
 
 void RT_DetachFromScene(SceneEntity *entity) {
-    if(!entity) {
+    if (!entity) {
         return;
     }
 
@@ -244,18 +247,28 @@ void RT_DetachFromScene(SceneEntity *entity) {
 
 void RT_ApplyPendingEntities() {
     detail::has_pending_entities = false;
-    detail::entities.insert(detail::entities.end(), detail::pending_attach_entities.begin(), detail::pending_attach_entities.end());
+
+    for (auto detach_entity: detail::pending_detach_entities) {
+        RT_SwapRemoveEntity(detail::entities, detach_entity);
+        RT_SwapRemoveEntity(detail::pending_attach_entities, detach_entity);
+    }
+    detail::pending_detach_entities.clear();
+
+    detail::entities.insert(detail::entities.end(), detail::pending_attach_entities.begin(),
+                            detail::pending_attach_entities.end());
     detail::pending_attach_entities.clear();
 
-    for(auto detach_entity : detail::pending_detach_entities) {
-        auto iter = std::find(detail::entities.begin(), detail::entities.end(), detach_entity);
-        if(iter == detail::entities.end()) {
-            std::cerr << "Trying to detach non-attached entity\n";
-            continue;
-        }
 
-        std::iter_swap(*iter, detail::entities.back());
-        detail::entities.pop_back();
-    }
     device::scene->rebuild_entities(detail::entities);
+}
+
+void RT_SwapRemoveEntity(std::vector<SceneEntity*> &collection, SceneEntity *entity_to_remove) {
+    auto iter = std::find(collection.begin(), collection.end(), entity_to_remove);
+    if(iter == collection.end()) {
+        return;
+    }
+
+    //std::iter_swap(*iter, collection.back());
+    //collection.pop_back();
+    collection.erase(iter);
 }
