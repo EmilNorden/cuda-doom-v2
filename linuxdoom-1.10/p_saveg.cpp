@@ -216,9 +216,11 @@ void P_ArchiveThinkers(void) {
         if (th->function.acp1 == (actionf_p1) P_MobjThinker) {
             *save_p++ = tc_mobj;
             PADSAVEP();
+            auto mobj_size = sizeof(*mobj) -
+                             sizeof(void *); // Hack to get around the fact that I've now got a SceneEntity pointer inside mobj_t
             mobj = (mobj_t *) save_p;
-            memcpy(mobj, th, sizeof(*mobj));
-            save_p += sizeof(*mobj);
+            memcpy(mobj, th, mobj_size);
+            save_p += mobj_size;
             mobj->state = (state_t *) (mobj->state - states);
 
             if (mobj->player)
