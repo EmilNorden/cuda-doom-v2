@@ -16,6 +16,8 @@ namespace wad {
         std::vector<std::uint16_t> pixels;
         int width;
         int height;
+        std::uint16_t top_offset;
+        std::uint16_t left_offset;
     };
 
     Picture read_picture(Lump& lump);

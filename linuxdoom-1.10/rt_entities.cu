@@ -17,6 +17,7 @@ SceneEntity *RT_CreateMapThing(mobjtype_t type, mobj_t *obj) {
     std::vector<DeviceSpriteFrame> device_sprite_frames;
     for (auto &sprite_frame: sprite.frames) {
         std::array<DeviceTexture *, 8> rotation_textures{};
+        std::array<glm::i16vec2, 8> texture_offsets{};
         if (sprite_frame.rotate) {
             for (int rot = 0; rot < 8; ++rot) {
                 auto sprite_lump = detail::sprite_data->sprite_lumps_start() +
@@ -27,6 +28,7 @@ SceneEntity *RT_CreateMapThing(mobjtype_t type, mobj_t *obj) {
 
                 max_width = std::max(picture.width, max_width);
                 max_height = std::max(picture.height, max_height);
+                texture_offsets[rot] = glm::i16vec2(picture.top_offset, picture.left_offset);
 
                 if (sprite_frame.flip[rot]) {
                     auto flipped = wad::flip_picture(picture);
@@ -48,11 +50,12 @@ SceneEntity *RT_CreateMapThing(mobjtype_t type, mobj_t *obj) {
             for (int rot = 0; rot < 8; ++rot) {
                 rotation_textures[rot] = create_device_type<DeviceTexture>(picture.pixels, picture.width,
                                                                            picture.height);
+                texture_offsets[rot] = glm::i16vec2(picture.top_offset, picture.left_offset);
             }
         }
 
 
-        device_sprite_frames.emplace_back(rotation_textures);
+        device_sprite_frames.emplace_back(rotation_textures, texture_offsets);
     }
 
     if (max_width == -1 || max_height == -1) {

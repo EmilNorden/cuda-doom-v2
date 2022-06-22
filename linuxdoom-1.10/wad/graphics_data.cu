@@ -50,7 +50,7 @@ namespace wad {
             }
         }
 
-        return wad::Picture{lump.name, pixels, patch_width, patch_height};
+        return wad::Picture{lump.name, pixels, patch_width, patch_height, patch_topoffset, patch_leftoffset};
     }
 
     Picture flip_picture(const Picture& picture) {
@@ -64,7 +64,7 @@ namespace wad {
             }
         }
 
-        return Picture{picture.name, flipped_pixels, picture.width, picture.height};
+        return Picture{picture.name, flipped_pixels, picture.width, picture.height, picture.top_offset, picture.left_offset};
     }
 }
 

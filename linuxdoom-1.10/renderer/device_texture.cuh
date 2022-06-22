@@ -11,8 +11,8 @@ public:
 
     [[nodiscard]] __device__ std::uint16_t sample(const glm::vec2 &uv) const;
 
-    size_t width() const { return m_width; }
-    size_t height() const {return m_height; }
+    __host__ __device__ size_t width() const { return m_width; }
+    __host__ __device__ size_t height() const {return m_height; }
 
 private:
     std::uint16_t *m_data;
