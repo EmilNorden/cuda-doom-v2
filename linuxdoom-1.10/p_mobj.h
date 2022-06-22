@@ -40,10 +40,11 @@
 #include "info.h"
 
 
-
 #ifdef __GNUG__
 #pragma interface
 #endif
+
+class SceneEntity;
 
 
 
@@ -282,7 +283,9 @@ typedef struct mobj_s
 
     // Thing being chased/attacked for tracers.
     struct mobj_s*	tracer;	
-    
+
+    // Pointer to ray tracing entity
+    SceneEntity *scene_entity;
 } mobj_t;
 
 

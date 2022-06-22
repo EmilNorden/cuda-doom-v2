@@ -13,12 +13,6 @@
 #include <algorithm>
 #include <set>
 
-struct SideTextures {
-    std::string upper_texture;
-    std::string lower_texture;
-    std::string middle_texture;
-};
-
 class TextureCache {
 public:
     DeviceTexture *get_texture_for_flat(short flatnum) {
@@ -62,7 +56,7 @@ struct MovableSector {
 struct SceneData {
     std::vector<Square *> walls;
     std::vector<Triangle *> triangles;
-    std::vector<MapThing *> things;
+    std::vector<SceneEntity *> entities;
     std::vector<DeviceTexture *> device_textures;
     std::unordered_map<sector_t *, MovableSector> movable_sector;
 };
@@ -110,10 +104,6 @@ Square *create_sector_adjacent_wall(short texture_number,
 Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData &graphics_data,
                          TextureCache &texture_cache,
                          int floor_height, int ceiling_height, vertex_t *start_vertex, vertex_t *end_vertex);
-
-float fixed_to_floating(int value) {
-    return static_cast<float>(value) / 65536.0f;
-}
 
 Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
 
@@ -190,7 +180,7 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
 
             Polygon polygon;
             for (auto &line: sorted_lines) {
-                polygon.emplace_back(glm::vec2{fixed_to_floating(line.v1->x), fixed_to_floating(line.v1->y)});
+                polygon.emplace_back(glm::vec2{RT_FixedToFloating(line.v1->x), RT_FixedToFloating(line.v1->y)});
             }
             polygons.push_back(polygon);
         }
@@ -271,8 +261,6 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
                 continue;
             }
 
-            std::cout << "Sector " << sector_number << ": " << "Polygon (" << i << "/" << polygons.size() << ") size: "
-                      << polygons[i].size() << std::endl;
             create_mesh_from_polygon(
                     sector_ptr,
                     texture_cache,
@@ -450,7 +438,7 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
 
     auto sky_texture = get_device_texture(skytexture, wad, graphics_data, texture_cache);
 
-    return create_device_type<Scene>(scene_data.walls, scene_data.triangles, scene_data.things, sky_texture);
+    return create_device_type<Scene>(scene_data.walls, scene_data.triangles, scene_data.entities, sky_texture);
 }
 
 Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData &graphics_data,
@@ -460,17 +448,17 @@ Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData 
         return nullptr;
     }
 
-    auto start_x = fixed_to_floating(start_vertex->x);
-    auto start_y = fixed_to_floating(start_vertex->y);
+    auto start_x = RT_FixedToFloating(start_vertex->x);
+    auto start_y = RT_FixedToFloating(start_vertex->y);
 
-    auto end_x = fixed_to_floating(end_vertex->x);
-    auto end_y = fixed_to_floating(end_vertex->y);
+    auto end_x = RT_FixedToFloating(end_vertex->x);
+    auto end_y = RT_FixedToFloating(end_vertex->y);
 
-    auto bottom_left = glm::vec3(start_x, fixed_to_floating(floor_height), start_y);
-    auto top_left = glm::vec3(start_x, fixed_to_floating(ceiling_height), start_y);
+    auto bottom_left = glm::vec3(start_x, RT_FixedToFloating(floor_height), start_y);
+    auto top_left = glm::vec3(start_x, RT_FixedToFloating(ceiling_height), start_y);
 
-    auto bottom_right = glm::vec3(end_x, fixed_to_floating(floor_height), end_y);
-    auto top_right = glm::vec3(end_x, fixed_to_floating(ceiling_height), end_y);
+    auto bottom_right = glm::vec3(end_x, RT_FixedToFloating(floor_height), end_y);
+    auto top_right = glm::vec3(end_x, RT_FixedToFloating(ceiling_height), end_y);
 
     auto texture = get_device_texture(texture_number, wad, graphics_data, texture_cache);
 
@@ -496,17 +484,17 @@ Square *create_sector_adjacent_wall(short texture_number,
         return nullptr;
     }
 
-    auto lower_height = fixed_to_floating(front_sector_height);
-    auto higher_height = fixed_to_floating(back_sector_height);
+    auto lower_height = RT_FixedToFloating(front_sector_height);
+    auto higher_height = RT_FixedToFloating(back_sector_height);
     if (lower_height > higher_height) {
         std::swap(lower_height, higher_height);
     }
 
-    auto start_x = fixed_to_floating(start_vertex->x);
-    auto start_y = fixed_to_floating(start_vertex->y);
+    auto start_x = RT_FixedToFloating(start_vertex->x);
+    auto start_y = RT_FixedToFloating(start_vertex->y);
 
-    auto end_x = fixed_to_floating(end_vertex->x);
-    auto end_y = fixed_to_floating(end_vertex->y);
+    auto end_x = RT_FixedToFloating(end_vertex->x);
+    auto end_y = RT_FixedToFloating(end_vertex->y);
 
     auto bottom_left = glm::vec3(start_x, lower_height, start_y);
     auto top_left = glm::vec3(start_x, higher_height, start_y);
@@ -708,7 +696,7 @@ void create_mesh_from_polygon(
     std::vector<glm::vec3> polys3d;
     // polys3d.reserve(polygon.size());
     for (auto &p: polygon) {
-        polys3d.emplace_back(p.x, fixed_to_floating(sector->floorheight), p.y);
+        polys3d.emplace_back(p.x, RT_FixedToFloating(sector->floorheight), p.y);
     }
     auto triangles = triangulate_polygon(polys3d, floor_texture);
 
@@ -730,7 +718,7 @@ void create_mesh_from_polygon(
         for (auto &triangle: triangles) {
             auto ceiling_triangle = create_device_type<Triangle>(triangle->v0, triangle->v1, triangle->v2,
                                                                  ceiling_texture);
-            ceiling_triangle->v0.y = ceiling_triangle->v1.y = ceiling_triangle->v2.y = fixed_to_floating(
+            ceiling_triangle->v0.y = ceiling_triangle->v1.y = ceiling_triangle->v2.y = RT_FixedToFloating(
                     sector->ceilingheight);
             ceiling_triangles.push_back(ceiling_triangle);
         }

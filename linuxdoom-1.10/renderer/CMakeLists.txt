@@ -24,8 +24,8 @@ target_sources(doom PRIVATE
         geometry_helpers.cu
         geometry_helpers.cuh
         intersection.cuh
-        map_thing.cu
-        map_thing.cuh
+        scene_entity.cu
+        scene_entity.cuh
         ray.cuh
         renderer.cu
         renderer.cuh

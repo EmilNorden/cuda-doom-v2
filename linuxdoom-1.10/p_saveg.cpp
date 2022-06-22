@@ -264,11 +264,13 @@ void P_UnArchiveThinkers(void) {
             case tc_end:
                 return;    // end of list
 
-            case tc_mobj:
+            case tc_mobj: {
                 PADSAVEP();
                 mobj = (mobj_t *) Z_Malloc(sizeof(*mobj), PU_LEVEL, NULL);
-                memcpy(mobj, save_p, sizeof(*mobj));
-                save_p += sizeof(*mobj);
+                auto mobj_size = sizeof(*mobj) -
+                                 sizeof(void *); // Hack to get around the fact that I've now got a SceneEntity pointer inside mobj_t
+                memcpy(mobj, save_p, mobj_size);
+                save_p += mobj_size;
                 mobj->state = &states[(size_t) mobj->state];
                 mobj->target = NULL;
                 if (mobj->player) {
@@ -282,7 +284,7 @@ void P_UnArchiveThinkers(void) {
                 mobj->thinker.function.acp1 = (actionf_p1) P_MobjThinker;
                 P_AddThinker(&mobj->thinker);
                 break;
-
+            }
             default:
                 I_Error("Unknown tclass %i in savegame", tclass);
         }
@@ -448,7 +450,7 @@ void P_UnArchiveSpecials(void) {
 
             case tc_ceiling:
                 PADSAVEP();
-                ceiling = (ceiling_t*)Z_Malloc(sizeof(*ceiling), PU_LEVEL, NULL);
+                ceiling = (ceiling_t *) Z_Malloc(sizeof(*ceiling), PU_LEVEL, NULL);
                 memcpy(ceiling, save_p, sizeof(*ceiling));
                 save_p += sizeof(*ceiling);
                 ceiling->sector = &sectors[(size_t) ceiling->sector];
@@ -463,7 +465,7 @@ void P_UnArchiveSpecials(void) {
 
             case tc_door:
                 PADSAVEP();
-                door = (vldoor_t*)Z_Malloc(sizeof(*door), PU_LEVEL, NULL);
+                door = (vldoor_t *) Z_Malloc(sizeof(*door), PU_LEVEL, NULL);
                 memcpy(door, save_p, sizeof(*door));
                 save_p += sizeof(*door);
                 door->sector = &sectors[(size_t) door->sector];
@@ -474,7 +476,7 @@ void P_UnArchiveSpecials(void) {
 
             case tc_floor:
                 PADSAVEP();
-                floor = (floormove_t*)Z_Malloc(sizeof(*floor), PU_LEVEL, NULL);
+                floor = (floormove_t *) Z_Malloc(sizeof(*floor), PU_LEVEL, NULL);
                 memcpy(floor, save_p, sizeof(*floor));
                 save_p += sizeof(*floor);
                 floor->sector = &sectors[(size_t) floor->sector];
@@ -485,7 +487,7 @@ void P_UnArchiveSpecials(void) {
 
             case tc_plat:
                 PADSAVEP();
-                plat = (plat_t*)Z_Malloc(sizeof(*plat), PU_LEVEL, NULL);
+                plat = (plat_t *) Z_Malloc(sizeof(*plat), PU_LEVEL, NULL);
                 memcpy(plat, save_p, sizeof(*plat));
                 save_p += sizeof(*plat);
                 plat->sector = &sectors[(size_t) plat->sector];
@@ -500,7 +502,7 @@ void P_UnArchiveSpecials(void) {
 
             case tc_flash:
                 PADSAVEP();
-                flash = (lightflash_t*)Z_Malloc(sizeof(*flash), PU_LEVEL, NULL);
+                flash = (lightflash_t *) Z_Malloc(sizeof(*flash), PU_LEVEL, NULL);
                 memcpy(flash, save_p, sizeof(*flash));
                 save_p += sizeof(*flash);
                 flash->sector = &sectors[(size_t) flash->sector];
@@ -510,7 +512,7 @@ void P_UnArchiveSpecials(void) {
 
             case tc_strobe:
                 PADSAVEP();
-                strobe = (strobe_t*)Z_Malloc(sizeof(*strobe), PU_LEVEL, NULL);
+                strobe = (strobe_t *) Z_Malloc(sizeof(*strobe), PU_LEVEL, NULL);
                 memcpy(strobe, save_p, sizeof(*strobe));
                 save_p += sizeof(*strobe);
                 strobe->sector = &sectors[(size_t) strobe->sector];
@@ -520,7 +522,7 @@ void P_UnArchiveSpecials(void) {
 
             case tc_glow:
                 PADSAVEP();
-                glow = (glow_t*)Z_Malloc(sizeof(*glow), PU_LEVEL, NULL);
+                glow = (glow_t *) Z_Malloc(sizeof(*glow), PU_LEVEL, NULL);
                 memcpy(glow, save_p, sizeof(*glow));
                 save_p += sizeof(*glow);
                 glow->sector = &sectors[(size_t) glow->sector];

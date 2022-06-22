@@ -39,6 +39,7 @@ static const char
 
 #include "doomstat.h"
 #include "rt_raytracing.cuh"
+#include "rt_entities.cuh"
 
 
 void G_PlayerReborn(int player);
@@ -381,7 +382,6 @@ void P_MobjThinker(mobj_t *mobj) {
         || mobj->momy
         || (mobj->flags & MF_SKULLFLY)) {
         P_XYMovement(mobj);
-
         // FIXME: decent NOP/NULL/Nil function pointer please.
         if (mobj->thinker.function.acv == (actionf_v) (-1))
             return;        // mobj was removed
@@ -389,11 +389,12 @@ void P_MobjThinker(mobj_t *mobj) {
     if ((mobj->z != mobj->floorz)
         || mobj->momz) {
         P_ZMovement(mobj);
-
         // FIXME: decent NOP/NULL/Nil function pointer please.
         if (mobj->thinker.function.acv == (actionf_v) (-1))
             return;        // mobj was removed
     }
+
+    RT_UpdateEntityPosition(mobj);
 
 
     // cycle through states,
@@ -735,6 +736,9 @@ void P_SpawnMapThing(mapthing_t *mthing) {
     mobj->angle = ANG45 * (mthing->angle / 45);
     if (mthing->options & MTF_AMBUSH)
         mobj->flags |= MF_AMBUSH;
+
+    mobj->scene_entity = RT_CreateMapThing((mobjtype_t)i, mobj);
+    RT_AttachToScene(mobj->scene_entity);
 }
 
 

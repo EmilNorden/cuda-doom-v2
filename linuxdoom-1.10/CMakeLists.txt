@@ -124,9 +124,12 @@ add_executable(doom
         r_state.h
         r_things.cpp
         r_things.h
+        rt_entities.cu
+        rt_entities.cuh
         rt_raytracing_opengl.cu
         rt_raytracing_opengl.cuh
         rt_raytracing_scene.cu
+        rt_raytracing_scene.cuh
         rt_raytracing.cu
         rt_raytracing.cuh
         s_sound.cpp
@@ -192,4 +195,8 @@ target_compile_options(doom PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
         --relocatable-device-code=true
         -arch=compute_86
         -code=sm_86
+        >)
+
+target_compile_options(doom PRIVATE $<$<CONFIG:DEBUG>:
+        -g
         >)

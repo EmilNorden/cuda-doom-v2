@@ -5,6 +5,14 @@
 #include <string>
 #include <iostream>
 
+
+//
+// Frame flags:
+// handles maximum brightness (torches, muzzle flare, light sources)
+//
+#define FF_FULLBRIGHT	0x8000	// flag in thing->frame
+#define FF_FRAMEMASK	0x7fff
+
 namespace wad {
 
     struct SpriteFrame {
@@ -17,29 +25,21 @@ namespace wad {
         std::vector<SpriteFrame> frames;
     };
 
-    template <typename T>
-    struct PtrIter {
-        T* ptr;
-        size_t count;
-        T* begin() const { return ptr; }
-        T* end() const { return ptr+count; }
-    };
-
     class SpriteData {
     public:
-        explicit SpriteData(Wad &wad, char *sprite_names, int sprite_name_count) {
+        SpriteData(Wad &wad, char **sprite_names, int sprite_count) {
             m_sprite_lumps_start = wad.get_lump_number("S_START").value();
             auto sprite_lumps_end = wad.get_lump_number("S_END").value();
 
-
-            for (auto &sprite_name: PtrIter<char*>{}) {
+            for (int i = 0; i < sprite_count; ++i) {
+                auto sprname = sprite_names[i];
                 std::array<SpriteFrame, 29> sprite_frames{};
                 int max_frame = -1;
 
                 for (auto lump_number = m_sprite_lumps_start + 1; lump_number < sprite_lumps_end; ++lump_number) {
                     auto lump_name = wad.get_lump_name(lump_number);
 
-                    if (lump_name.rfind(sprite_name, 0) != 0) {
+                    if (lump_name.rfind(sprname, 0) != 0) {
                         continue;
                     }
 
@@ -72,13 +72,13 @@ namespace wad {
                 }
 
                 m_sprites.push_back(Sprite{
-                        std::vector<SpriteFrame>(sprite_frames.begin(), sprite_frames.begin() + max_frame)
+                        std::vector<SpriteFrame>(sprite_frames.begin(), sprite_frames.begin() + max_frame + 1)
                 });
             }
         }
 
-         [[nodiscard]] const std::vector<Sprite>& sprites() const { return m_sprites; }
-         [[nodiscard]] int sprite_lumps_start() const { return m_sprite_lumps_start; }
+        [[nodiscard]] const std::vector<Sprite>& sprites() const { return m_sprites; }
+        [[nodiscard]] int sprite_lumps_start() const { return m_sprite_lumps_start; }
 
     private:
         std::vector<Sprite> m_sprites;

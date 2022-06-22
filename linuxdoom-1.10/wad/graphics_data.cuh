@@ -19,6 +19,7 @@ namespace wad {
     };
 
     Picture read_picture(Lump& lump);
+    Picture flip_picture(const Picture& picture);
 
     struct MapTexturePatch {
         std::int16_t originx;

@@ -7,7 +7,7 @@
 #include "ray.cuh"
 #include "device_random.cuh"
 #include "device_texture.cuh"
-#include "map_thing.cuh"
+#include "scene_entity.cuh"
 #include "square.cuh"
 #include "triangle.cuh"
 #include "intersection.cuh"
@@ -38,26 +38,27 @@ enum class SplitComparison {
 
 class Scene {
 public:
-    Scene(std::vector<Square*> &walls, std::vector<Triangle*> &floors_ceilings, std::vector<MapThing*> &map_things, DeviceTexture *sky);
+    Scene(std::vector<Square*> &walls, std::vector<Triangle*> &floors_ceilings, std::vector<SceneEntity*> &scene_entities, DeviceTexture *sky);
 
     __device__ bool intersect(const Ray &ray, Intersection &intersection);
 
     [[nodiscard]] __device__ const DeviceTexture *sky() const { return m_sky; }
 
+    void rebuild_entities(const std::vector<SceneEntity*>& scene_entities);
 
 private:
     TreeNode<Square*> *m_walls_root;
     TreeNode<Triangle*> *m_floors_ceilings_root;
-    TreeNode<MapThing*> *m_map_things_root;
+    TreeNode<SceneEntity*> *m_entities_root;
     DeviceTexture *m_sky;
 
     __device__ bool intersect_walls(const Ray &ray, Intersection &intersection);
     __device__ bool intersect_floors_and_ceilings(const Ray &ray, Intersection &intersection);
-    __device__ bool intersect_things(const Ray &ray, Intersection &intersection);
+    __device__ bool intersect_entities(const Ray &ray, Intersection &intersection);
 
     template <typename T>
     void build_node(TreeNode<T> &node, std::vector<T> &items, Axis current_axis, bool valid_axes[3], size_t size_limit, const std::function<void(std::vector<T> &items, Axis axis)> &sort_callback, const std::function<glm::vec3(const T median)> &median_callback, const std::function<SplitComparison(const T item, Axis axis, float splitting_value)> &split_callback) {
-        if(items.size() < size_limit) {
+        if(items.size() < 2000) {
             cuda_assert(cudaMalloc(&node.items, sizeof(T) * items.size()));
             cuda_assert(cudaMemcpy(node.items, items.data(), sizeof(T) * items.size(), cudaMemcpyHostToDevice));
             node.item_count = items.size();

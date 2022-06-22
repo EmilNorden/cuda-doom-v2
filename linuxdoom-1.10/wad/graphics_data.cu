@@ -52,6 +52,20 @@ namespace wad {
 
         return wad::Picture{lump.name, pixels, patch_width, patch_height};
     }
+
+    Picture flip_picture(const Picture& picture) {
+        std::vector<std::uint16_t> flipped_pixels;
+        flipped_pixels.resize(picture.pixels.size());
+        for(int y = 0; y < picture.height; ++y) {
+            for(int x = 0; x < picture.width; ++x) {
+                auto source_index = (y * picture.width) + x;
+                auto destination_index = (y * picture.width) + ((picture.width - x) - 1);
+                flipped_pixels[destination_index] = picture.pixels[source_index];
+            }
+        }
+
+        return Picture{picture.name, flipped_pixels, picture.width, picture.height};
+    }
 }
 
 std::vector<wad::MapTexture> read_textures(wad::Wad &wad) {

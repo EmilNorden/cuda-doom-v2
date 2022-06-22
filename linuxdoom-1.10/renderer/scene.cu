@@ -20,22 +20,24 @@ struct NodeSearchData {
     }
 };
 
-Scene::Scene(std::vector<Square*> &walls, std::vector<Triangle*> &floors_ceilings, std::vector<MapThing*> &map_things, DeviceTexture *sky)
-    : m_sky(sky) {
-    m_walls_root = create_device_type<TreeNode<Square*>>();
-    m_floors_ceilings_root = create_device_type<TreeNode<Triangle*>>();
-    m_map_things_root = create_device_type<TreeNode<MapThing*>>();
+Scene::Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceilings,
+             std::vector<SceneEntity *> &scene_entities, DeviceTexture *sky)
+        : m_sky(sky) {
+    m_walls_root = create_device_type<TreeNode<Square *>>();
+    m_floors_ceilings_root = create_device_type<TreeNode<Triangle *>>();
+    m_entities_root = create_device_type<TreeNode<SceneEntity *>>();
 
     std::cout << "Building scene with " << walls.size() << " walls, " << floors_ceilings.size()
-              << " floor/ceiling triangles and " << map_things.size() << " things\n";
+              << " floor/ceiling triangles and " << scene_entities.size() << " entities\n";
 
 
     bool valid_axes[3] = {true, false, true};
     auto walls_copy = walls;
     build_walls_node(*m_walls_root, walls_copy, Axis::X, valid_axes, 150);
 
-    std::function<void(std::vector<Triangle*> &, Axis axis)> triangle_sort_callback = [](std::vector<Triangle*> &items,
-                                                                                         Axis axis) {
+    std::function<void(std::vector<Triangle *> &, Axis axis)> triangle_sort_callback = [](
+            std::vector<Triangle *> &items,
+            Axis axis) {
         std::sort(items.begin(), items.end(), [&](const Triangle *a, const Triangle *b) {
             auto a_mid_point = (a->v0 + a->v1 + a->v2) / 3.0f;
             auto b_mid_point = (b->v0 + b->v1 + b->v2) / 3.0f;
@@ -77,21 +79,23 @@ Scene::Scene(std::vector<Square*> &walls, std::vector<Triangle*> &floors_ceiling
                triangle_median_callback,
                triangle_split_callback);
 
-    std::function<void(std::vector<MapThing*> &, Axis axis)> things_sort_callback = [](std::vector<MapThing*> &items,
-                                                                                       Axis axis) {
-        std::sort(items.begin(), items.end(), [&](const MapThing *a, const MapThing *b) {
+    std::function<void(std::vector<SceneEntity *> &, Axis axis)> entity_sort_callback = [](
+            std::vector<SceneEntity *> &items,
+            Axis axis) {
+        std::sort(items.begin(), items.end(), [&](const SceneEntity *a, const SceneEntity *b) {
             return a->position[static_cast<int>(axis)] < b->position[static_cast<int>(axis)];
         });
     };
 
-    std::function<glm::vec3(MapThing *median)> thing_median_callback = [](MapThing *median) {
+    std::function<glm::vec3(SceneEntity *median)> entity_median_callback = [](SceneEntity *median) {
         return median->position;
     };
 
-    std::function<SplitComparison(MapThing *item, Axis axis, float splitting_value)> thing_split_callback = [](
-            MapThing *item, Axis axis, float splitting_value) {
+    std::function<SplitComparison(SceneEntity *item, Axis axis, float splitting_value)> entity_split_callback = [](
+            SceneEntity *item, Axis axis, float splitting_value) {
         auto min_bounds = item->position - glm::vec3(item->max_size.x / 2.0f, 0, item->max_size.x / 2.0f);
-        auto max_bounds = item->position + glm::vec3(item->max_size.x / 2.0f, item->max_size.y, item->max_size.x / 2.0f);
+        auto max_bounds =
+                item->position + glm::vec3(item->max_size.x / 2.0f, item->max_size.y, item->max_size.x / 2.0f);
 
         bool is_greater_or_equal = min_bounds[axis] >= splitting_value ||
                                    max_bounds[axis] >= splitting_value;
@@ -108,19 +112,21 @@ Scene::Scene(std::vector<Square*> &walls, std::vector<Triangle*> &floors_ceiling
         }
     };
 
-    auto map_things_copy = map_things;
-    build_node(*m_map_things_root, map_things_copy, Axis::X, valid_axes, 2000,
-               things_sort_callback,
-               thing_median_callback,
-               thing_split_callback);
+    auto scene_entities_copy = scene_entities;
+    build_node(*m_entities_root, scene_entities_copy, Axis::X, valid_axes, 2000,
+               entity_sort_callback,
+               entity_median_callback,
+               entity_split_callback);
 }
 
 // TODO: Keep this here until i decide wether to keep the templated version. It's a mess.
 
-void Scene::build_walls_node(TreeNode<Square*> &node, std::vector<Square*> &walls, Axis current_axis, bool valid_axes[3], size_t size_limit) {
+void
+Scene::build_walls_node(TreeNode<Square *> &node, std::vector<Square *> &walls, Axis current_axis, bool valid_axes[3],
+                        size_t size_limit) {
     if (walls.size() < size_limit) {
-        cuda_assert(cudaMalloc(&node.items, sizeof(Square*) * walls.size()));
-        cuda_assert(cudaMemcpy(node.items, walls.data(), sizeof(Square*) * walls.size(), cudaMemcpyHostToDevice));
+        cuda_assert(cudaMalloc(&node.items, sizeof(Square *) * walls.size()));
+        cuda_assert(cudaMemcpy(node.items, walls.data(), sizeof(Square *) * walls.size(), cudaMemcpyHostToDevice));
         node.item_count = walls.size();
         node.left = nullptr;
         node.right = nullptr;
@@ -139,8 +145,8 @@ void Scene::build_walls_node(TreeNode<Square*> &node, std::vector<Square*> &wall
     auto median_point = walls[half_size]->top_left;
     auto splitting_value = median_point[axis];
 
-    std::vector<Square*> left_side;
-    std::vector<Square*> right_side;
+    std::vector<Square *> left_side;
+    std::vector<Square *> right_side;
 
     left_side.reserve(half_size);
     right_side.reserve(half_size);
@@ -161,7 +167,7 @@ void Scene::build_walls_node(TreeNode<Square*> &node, std::vector<Square*> &wall
         if (is_greater_or_equal) {
             right_side.push_back(wall);
         }
-        if(is_less) {
+        if (is_less) {
             left_side.push_back(wall);
         }
     }
@@ -175,7 +181,7 @@ void Scene::build_walls_node(TreeNode<Square*> &node, std::vector<Square*> &wall
 
     do {
         current_axis = static_cast<Axis>((current_axis + 1) % 3);
-    } while(!valid_axes[current_axis]);
+    } while (!valid_axes[current_axis]);
 
     build_walls_node(*node.left, left_side, current_axis, valid_axes, size_limit);
     build_walls_node(*node.right, right_side, current_axis, valid_axes, size_limit);
@@ -217,7 +223,8 @@ CompareRangeWithPlane(const Ray &ray, float tmin, float tmax, TreeNode<T> *node)
 }
 
 
-__device__ bool intersects_walls_node(const Ray &ray, TreeNode<Square*> *node, Intersection &intersection, float tmax) {
+__device__ bool
+intersects_walls_node(const Ray &ray, TreeNode<Square *> *node, Intersection &intersection, float tmax) {
     auto success = false;
     for (auto i = 0; i < node->item_count; ++i) {
         float hit_distance = 0.0f;
@@ -242,7 +249,8 @@ __device__ bool intersects_walls_node(const Ray &ray, TreeNode<Square*> *node, I
 }
 
 __device__ bool
-intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle*> *node, Intersection &intersection, float tmax) {
+intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle *> *node, Intersection &intersection,
+                                    float tmax) {
     auto success = false;
     for (auto i = 0; i < node->item_count; ++i) {
         float hit_distance = 0.0f;
@@ -254,11 +262,10 @@ intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle*> *node, I
             intersection.u = u;
             intersection.v = v;
             intersection.texture = node->items[i]->texture;
-            if(ray.direction().y >= 0.0f) {
+            if (ray.direction().y >= 0.0f) {
                 // Going upwards, must have hit ceiling
                 intersection.world_normal = glm::vec3{0.0f, -1.0f, 0.0f};
-            }
-            else {
+            } else {
                 // Going downwards, must have hit floor
                 intersection.world_normal = glm::vec3{0.0f, -1.0f, 0.0f};
             }
@@ -272,7 +279,7 @@ intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle*> *node, I
 __device__ bool Scene::intersect_walls(const Ray &ray, Intersection &intersection) {
     constexpr int StackSize = 20;
 
-    DeviceStack<StackSize, NodeSearchData<Square*>> nodes;
+    DeviceStack<StackSize, NodeSearchData<Square *>> nodes;
 
     nodes.push({
                        m_walls_root,
@@ -320,7 +327,7 @@ __device__ bool Scene::intersect_walls(const Ray &ray, Intersection &intersectio
 __device__ bool Scene::intersect_floors_and_ceilings(const Ray &ray, Intersection &intersection) {
     constexpr int StackSize = 20;
 
-    DeviceStack<StackSize, NodeSearchData<Triangle*>> nodes;
+    DeviceStack<StackSize, NodeSearchData<Triangle *>> nodes;
 
     nodes.push({
                        m_floors_ceilings_root,
@@ -365,14 +372,16 @@ __device__ bool Scene::intersect_floors_and_ceilings(const Ray &ray, Intersectio
     return false;
 }
 
-__device__ bool intersects_map_things_node(const Ray& ray, TreeNode<MapThing*> *node, Intersection &intersection, float tmax) {
+__device__ bool
+intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersection &intersection, float tmax) {
     auto success = false;
     for (auto i = 0; i < node->item_count; ++i) {
         float hit_distance = 0.0f;
         float u = 0.0f;
         float v = 0.0f;
-        if (intersects_map_thing(ray, node->items[i], hit_distance, u, v) && hit_distance < tmax) {
-            auto texture = node->items[i]->sprite.get_texture(node->items[i]->frame,node->items[i]->rotation);
+        if (intersects_scene_entity(ray, node->items[i], hit_distance, u, v) && hit_distance < tmax) {
+            auto texture = node->items[i]->sprite.get_texture(node->items[i]->frame, node->items[i]->rotation);
+
             if (texture->sample({u, v}) > 0xFF) {
                 continue;
             }
@@ -380,7 +389,7 @@ __device__ bool intersects_map_things_node(const Ray& ray, TreeNode<MapThing*> *
             intersection.u = u;
             intersection.v = v;
             intersection.texture = texture;
-            intersection.world_normal = glm::vec3(0,1,0); // TODO Dirty workaround for now
+            intersection.world_normal = glm::vec3(0, 1, 0); // TODO Dirty workaround for now
             intersection.distance = hit_distance;
             success = true;
         }
@@ -389,13 +398,13 @@ __device__ bool intersects_map_things_node(const Ray& ray, TreeNode<MapThing*> *
     return success;
 }
 
-__device__ bool Scene::intersect_things(const Ray &ray, Intersection &intersection) {
+__device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersection) {
     constexpr int StackSize = 20;
 
-    DeviceStack<StackSize, NodeSearchData<MapThing*>> nodes;
+    DeviceStack<StackSize, NodeSearchData<SceneEntity *>> nodes;
 
     nodes.push({
-                       m_map_things_root,
+                       m_entities_root,
                        FLT_MIN,
                        intersection.distance
                });
@@ -407,7 +416,7 @@ __device__ bool Scene::intersect_things(const Ray &ray, Intersection &intersecti
         auto tmax = current.tmax;
 
         if (is_leaf(node)) {
-            if (intersects_map_things_node(ray, node, intersection, tmax)) {
+            if (intersects_entity_node(ray, node, intersection, tmax)) {
                 return true;
             }
         } else {
@@ -442,8 +451,51 @@ __device__ bool Scene::intersect(const Ray &ray, Intersection &intersection) {
 
     auto intersects_walls = intersect_walls(ray, intersection);
     auto intersects_floors_or_ceilings = intersect_floors_and_ceilings(ray, intersection);
-    //auto intersects_things = intersect_things(ray, intersection);
-
+    auto intersects_entities = intersect_entities(ray, intersection);
     //return intersects_walls || intersects_floors_or_ceilings || intersects_things;
-    return intersects_walls ||  intersects_floors_or_ceilings;
+    return intersects_walls || intersects_floors_or_ceilings || intersects_entities;
+}
+
+void Scene::rebuild_entities(const std::vector<SceneEntity*>& scene_entities) {
+    // TODO: NEED TO FREE EXISTING NODES OR ELSE LEAK MEMORY
+    std::function<void(std::vector<SceneEntity *> &, Axis axis)> entity_sort_callback = [](
+            std::vector<SceneEntity *> &items,
+            Axis axis) {
+        std::sort(items.begin(), items.end(), [&](const SceneEntity *a, const SceneEntity *b) {
+            return a->position[static_cast<int>(axis)] < b->position[static_cast<int>(axis)];
+        });
+    };
+
+    std::function<glm::vec3(SceneEntity *median)> entity_median_callback = [](SceneEntity *median) {
+        return median->position;
+    };
+
+    std::function<SplitComparison(SceneEntity *item, Axis axis, float splitting_value)> entity_split_callback = [](
+            SceneEntity *item, Axis axis, float splitting_value) {
+        auto min_bounds = item->position - glm::vec3(item->max_size.x / 2.0f, 0, item->max_size.x / 2.0f);
+        auto max_bounds =
+                item->position + glm::vec3(item->max_size.x / 2.0f, item->max_size.y, item->max_size.x / 2.0f);
+
+        bool is_greater_or_equal = min_bounds[axis] >= splitting_value ||
+                                   max_bounds[axis] >= splitting_value;
+
+        bool is_less = min_bounds[axis] <= splitting_value ||
+                       max_bounds[axis] <= splitting_value;
+
+        if (is_greater_or_equal && is_less) {
+            return SplitComparison::Both;
+        } else if (is_greater_or_equal) {
+            return SplitComparison::GreaterOrEqual;
+        } else {
+            return SplitComparison::Less;
+        }
+    };
+
+    auto scene_entities_copy = scene_entities;
+    bool valid_axes[3] = {true, false, true};
+    printf("Rebuilding %zu entities!\n", scene_entities.size());
+    build_node(*m_entities_root, scene_entities_copy, Axis::X, valid_axes, 2000,
+               entity_sort_callback,
+               entity_median_callback,
+               entity_split_callback);
 }

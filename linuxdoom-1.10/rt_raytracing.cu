@@ -10,6 +10,7 @@
 #include "opengl/common.h"
 #include "wad/graphics_data.cuh"
 #include "wad/wad.cuh"
+#include "wad/sprites.cuh"
 #include <glm/gtx/rotate_vector.hpp>
 
 // CUDA <-> OpenGL interop
@@ -24,8 +25,12 @@ namespace device {
 
 namespace detail {
     wad::GraphicsData *graphics_data;
+    wad::SpriteData *sprite_data;
     wad::Wad *wad;
     size_t current_sample;
+    bool has_pending_entities = false;
+    std::vector<SceneEntity*> pending_attach_entities;
+    std::vector<SceneEntity*> entities;
 }
 
 
@@ -36,6 +41,7 @@ void print_cuda_device_info();
 void init_gl_buffers();
 
 Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data);
+void RT_ApplyPendingEntities();
 
 void RT_InitGraphics(char **wadfiles) {
     std::vector<std::filesystem::path> paths;
@@ -45,6 +51,7 @@ void RT_InitGraphics(char **wadfiles) {
 
     detail::wad = new wad::Wad(paths);
     detail::graphics_data = new wad::GraphicsData(*detail::wad);
+    detail::sprite_data = new wad::SpriteData(*detail::wad, sprnames, NUMSPRITES);
 }
 
 
@@ -80,7 +87,7 @@ void RT_Init(char **wadfiles) {
 //std::vector<Square> &walls, std::vector<Triangle> &floors_ceilings, std::vector<MapThing> &map_things
     std::vector<Square *> walls;
     std::vector<Triangle *> fc;
-    std::vector<MapThing *> mt;
+    std::vector<SceneEntity *> mt;
     device::scene = create_device_type<Scene>(walls, fc, mt, nullptr);
 
     RT_InitGl();
@@ -155,6 +162,10 @@ bool RT_IsEnabled() {
 }
 
 void RT_RenderSample() {
+    if(detail::has_pending_entities) {
+        RT_ApplyPendingEntities();
+    }
+
     device::renderer->render(
             device::camera,
             device::scene,
@@ -162,7 +173,7 @@ void RT_RenderSample() {
             device::palette,
             320,
             240,
-            detail::current_sample);
+            0);
     detail::current_sample++;
 }
 
@@ -210,4 +221,20 @@ void RT_WindowChanged() {
     RT_InitGl();
     device::renderer = new Renderer(device::opengl_tex_cuda, 320, 240);
     printf("GL BUFFERS RECREATED\n");
+}
+
+void RT_AttachToScene(SceneEntity *entity) {
+    if(!entity){
+        return;
+    }
+
+    detail::has_pending_entities = true;
+    detail::pending_attach_entities.push_back(entity);
+}
+
+void RT_ApplyPendingEntities() {
+    detail::has_pending_entities = false;
+    detail::entities.insert(detail::entities.end(), detail::pending_attach_entities.begin(), detail::pending_attach_entities.end());
+    detail::pending_attach_entities.clear();
+    device::scene->rebuild_entities(detail::entities);
 }
