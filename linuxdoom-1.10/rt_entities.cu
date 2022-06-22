@@ -73,6 +73,14 @@ SceneEntity *RT_CreateMapThing(mobjtype_t type, mobj_t *obj) {
                                            device_sprite);
 }
 
+void RT_DestroySceneEntity(SceneEntity* entity) {
+    if(!entity) {
+        return;
+    }
+
+    cudaFree(entity);
+}
+
 void RT_UpdateEntityPosition(mobj_t *obj) {
     if (!obj->scene_entity) {
         return;

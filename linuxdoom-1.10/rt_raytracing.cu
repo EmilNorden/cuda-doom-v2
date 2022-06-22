@@ -30,6 +30,7 @@ namespace detail {
     size_t current_sample;
     bool has_pending_entities = false;
     std::vector<SceneEntity*> pending_attach_entities;
+    std::vector<SceneEntity*> pending_detach_entities;
     std::vector<SceneEntity*> entities;
 }
 
@@ -232,9 +233,29 @@ void RT_AttachToScene(SceneEntity *entity) {
     detail::pending_attach_entities.push_back(entity);
 }
 
+void RT_DetachFromScene(SceneEntity *entity) {
+    if(!entity) {
+        return;
+    }
+
+    detail::has_pending_entities = true;
+    detail::pending_detach_entities.push_back(entity);
+}
+
 void RT_ApplyPendingEntities() {
     detail::has_pending_entities = false;
     detail::entities.insert(detail::entities.end(), detail::pending_attach_entities.begin(), detail::pending_attach_entities.end());
     detail::pending_attach_entities.clear();
+
+    for(auto detach_entity : detail::pending_detach_entities) {
+        auto iter = std::find(detail::entities.begin(), detail::entities.end(), detach_entity);
+        if(iter == detail::entities.end()) {
+            std::cerr << "Trying to detach non-attached entity\n";
+            continue;
+        }
+
+        std::iter_swap(*iter, detail::entities.back());
+        detail::entities.pop_back();
+    }
     device::scene->rebuild_entities(detail::entities);
 }

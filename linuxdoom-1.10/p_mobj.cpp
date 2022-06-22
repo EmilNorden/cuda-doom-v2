@@ -520,6 +520,9 @@ void P_RemoveMobj(mobj_t *mobj) {
     // stop any playing sound
     S_StopSound(mobj);
 
+    RT_DetachFromScene(mobj->scene_entity);
+    RT_DestroySceneEntity(mobj->scene_entity);
+
     // free block
     P_RemoveThinker((thinker_t *) mobj);
 }

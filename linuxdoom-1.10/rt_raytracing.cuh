@@ -11,7 +11,7 @@
 
 class Scene;
 namespace device {
-    extern Scene* scene;
+    extern Scene *scene;
 }
 
 namespace detail {
@@ -21,16 +21,28 @@ namespace detail {
 }
 
 void RT_Init(char **wadfiles);
+
 void RT_BuildScene();
+
 void RT_Enable();
+
 void RT_Disable();
+
 bool RT_IsEnabled();
+
 void RT_RenderSample();
+
 void RT_Present();
-void RT_UpdatePalette(byte* palette);
+
+void RT_UpdatePalette(byte *palette);
+
 void RT_UpdateCameraFromPlayer(player_t *player);
+
 void RT_WindowChanged();
+
 void RT_AttachToScene(SceneEntity *entity);
+
+void RT_DetachFromScene(SceneEntity *entity);
 
 inline float RT_FixedToFloating(int value) {
     return static_cast<float>(value) / 65536.0f;
