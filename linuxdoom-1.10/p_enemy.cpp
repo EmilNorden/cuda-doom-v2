@@ -44,6 +44,8 @@ static const char
 
 // Data.
 #include "sounds.h"
+#include "rt_entities.cuh"
+#include "rt_raytracing.cuh"
 
 
 typedef enum {
@@ -1363,6 +1365,9 @@ A_PainShootSkull
     z = actor->z + 8 * FRACUNIT;
 
     newmobj = P_SpawnMobj(x, y, z, MT_SKULL);
+
+    newmobj->scene_entity = RT_CreateMapThing(MT_SKULL, newmobj);
+    RT_AttachToScene(newmobj->scene_entity);
 
     // Check for movements.
     if (!P_TryMove(newmobj, newmobj->x, newmobj->y)) {

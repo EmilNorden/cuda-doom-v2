@@ -19,8 +19,8 @@ __device__ bool intersects_scene_entity(const Ray &ray, SceneEntity *entity, flo
 //    auto uv_scale = glm::vec2(1,1) / entity->max_size;
     auto uv_scale = glm::vec2(1.0f / width, 1.0f / height);
 
-    Square s(top_left, bitangent * width, tangent * entity->max_size.y, uv_scale, nullptr);
+    Square s(top_left, bitangent * width, tangent * height, uv_scale, nullptr);
 
     glm::vec3 normal;
-    return intersects_wall(ray, &s, hit_distance, u, v, normal);
+    return intersects_wall(ray, &s, hit_distance, u , v, normal);
 }
