@@ -9,18 +9,19 @@ __device__ bool intersects_scene_entity(const Ray &ray, SceneEntity *entity, flo
 
     auto thing_pos = entity->position;
     auto direction_to_viewer = glm::normalize(glm::vec3(ray.origin().x, 0, ray.origin().z)- thing_pos);
-    //auto direction_to_viewer = glm::normalize((thing_pos + glm::vec3(0, thing.max_size.y, 0)) - ray.origin());
     auto tangent = glm::vec3(0, -1, 0);
     auto bitangent = glm::normalize(glm::cross(tangent, direction_to_viewer));
 
-    auto top_left = thing_pos - (bitangent * (width * 0.5f));
+    auto top_left = thing_pos - (bitangent * (entity->max_size.x * 0.5f));
     top_left.y += height;
 
-//    auto uv_scale = glm::vec2(1,1) / entity->max_size;
     auto uv_scale = glm::vec2(1.0f / width, 1.0f / height);
 
     Square s(top_left, bitangent * width, tangent * height, uv_scale, nullptr);
 
     glm::vec3 normal;
-    return intersects_wall(ray, &s, hit_distance, u , v, normal);
+    auto result = intersects_wall(ray, &s, hit_distance, u , v, normal);
+    //u += uv_scale.x * (1.0f /static_cast<float>(sprite_offsets.x));
+    //v += uv_scale.y * (1.0f /static_cast<float>(sprite_offsets.y));
+    return result;
 }
