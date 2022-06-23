@@ -28,7 +28,7 @@ SceneEntity *RT_CreateMapThing(mobjtype_t type, mobj_t *obj) {
 
                 max_width = std::max(picture.width, max_width);
                 max_height = std::max(picture.height, max_height);
-                texture_offsets[rot] = glm::i16vec2(picture.top_offset, picture.left_offset);
+                texture_offsets[rot] = glm::i16vec2(picture.left_offset, picture.top_offset);
 
                 if (sprite_frame.flip[rot]) {
                     auto flipped = wad::flip_picture(picture);
@@ -50,7 +50,7 @@ SceneEntity *RT_CreateMapThing(mobjtype_t type, mobj_t *obj) {
             for (int rot = 0; rot < 8; ++rot) {
                 rotation_textures[rot] = create_device_type<DeviceTexture>(picture.pixels, picture.width,
                                                                            picture.height);
-                texture_offsets[rot] = glm::i16vec2(picture.top_offset, picture.left_offset);
+                texture_offsets[rot] = glm::i16vec2(picture.left_offset, picture.top_offset);
             }
         }
 

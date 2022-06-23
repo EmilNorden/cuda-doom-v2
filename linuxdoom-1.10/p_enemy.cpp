@@ -1366,8 +1366,8 @@ A_PainShootSkull
 
     newmobj = P_SpawnMobj(x, y, z, MT_SKULL);
 
-    newmobj->scene_entity = RT_CreateMapThing(MT_SKULL, newmobj);
-    RT_AttachToScene(newmobj->scene_entity);
+    //newmobj->scene_entity = RT_CreateMapThing(MT_SKULL, newmobj);
+    //RT_AttachToScene(newmobj->scene_entity);
 
     // Check for movements.
     if (!P_TryMove(newmobj, newmobj->x, newmobj->y)) {

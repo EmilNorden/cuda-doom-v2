@@ -74,6 +74,7 @@ P_SetMobjState
 
         // Modified handling.
         // Call action functions when the state is set
+        //TODO: ============================================= TEMPORARILY COMMENTED OUT SO I DONT HAVE TO ACTUALLY PLAY THE GAME ===================================================
         if (st->action)
             st->action(nullptr, nullptr, mobj);
 
@@ -485,6 +486,14 @@ P_SpawnMobj
 
     mobj->thinker.function.acp1 = (actionf_p1) P_MobjThinker;
 
+    if (type != MT_PLAYER) {
+        // TODO: This works unless in multiplayer I guess, then I need to think of something else.
+        // The reason for doing this is that I dont want to spawn the players sprite on top of the player, obstructing the view.
+        mobj->scene_entity = RT_CreateMapThing(type, mobj);
+        RT_AttachToScene(mobj->scene_entity);
+    }
+
+
     P_AddThinker(&mobj->thinker);
 
     return mobj;
@@ -740,8 +749,8 @@ void P_SpawnMapThing(mapthing_t *mthing) {
     if (mthing->options & MTF_AMBUSH)
         mobj->flags |= MF_AMBUSH;
 
-    mobj->scene_entity = RT_CreateMapThing((mobjtype_t)i, mobj);
-    RT_AttachToScene(mobj->scene_entity);
+    //mobj->scene_entity = RT_CreateMapThing((mobjtype_t)i, mobj);
+    //RT_AttachToScene(mobj->scene_entity);
 }
 
 

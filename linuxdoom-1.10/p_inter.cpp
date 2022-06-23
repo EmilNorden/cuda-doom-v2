@@ -714,8 +714,8 @@ P_KillMobj
     }
 
     mo = P_SpawnMobj(target->x, target->y, ONFLOORZ, item);
-    mo->scene_entity = RT_CreateMapThing(item, mo);
-    RT_AttachToScene(mo->scene_entity);
+    //mo->scene_entity = RT_CreateMapThing(item, mo);
+    //RT_AttachToScene(mo->scene_entity);
     mo->flags |= MF_DROPPED;    // special versions of items
 }
 

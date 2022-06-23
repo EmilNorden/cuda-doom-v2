@@ -12,8 +12,9 @@ __device__ bool intersects_scene_entity(const Ray &ray, SceneEntity *entity, flo
     auto tangent = glm::vec3(0, -1, 0);
     auto bitangent = glm::normalize(glm::cross(tangent, direction_to_viewer));
 
-    auto top_left = thing_pos - (bitangent * (entity->max_size.x * 0.5f));
+    auto top_left = thing_pos - (bitangent * (width * 0.5f));
     top_left.y += height;
+    //top_left.x -= sprite_offsets.x;
 
     auto uv_scale = glm::vec2(1.0f / width, 1.0f / height);
 
