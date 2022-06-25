@@ -283,22 +283,27 @@ void RT_SectorCeilingHeightChanged(sector_t *sector) {
     }
 
     auto& movable_sector = it->second;
+    auto door = (vldoor_t*)sector->specialdata;
 
     auto ceiling_height = RT_FixedToFloating(sector->ceilingheight);
+    auto door_total_height = RT_FixedToFloating(door->topheight) - RT_FixedToFloating(sector->floorheight);
+
+    // Actual door
     for(auto wall : movable_sector.ceiling_walls) {
         wall.wall->vertical_len = wall.adjacent_ceiling_height - ceiling_height;
+        wall.wall->uv_offset = ceiling_height - RT_FixedToFloating(sector->floorheight); // door_total_height - (wall.adjacent_ceiling_height - ceiling_height);
     }
+
 
     for(auto wall : movable_sector.floor_walls) {
         wall.wall->top_left.y = ceiling_height;
         wall.wall->vertical_len = ceiling_height- wall.adjacent_floor_height;
-
     }
 
-    auto door = (vldoor_t*)sector->specialdata;
+    // Side walls, ie door frame.
     for(auto wall : movable_sector.middle_walls) {
         wall->top_left.y = RT_FixedToFloating(door->topheight);
-        wall->vertical_len = RT_FixedToFloating(door->topheight) - RT_FixedToFloating(sector->floorheight);
+        wall->vertical_len = door_total_height;
         wall->vertical_vec = {0.0f, -1.0f, 0.0f};
         wall->uv_scale.y = (wall->vertical_len / wall->texture->height()) / wall->vertical_len;
     }

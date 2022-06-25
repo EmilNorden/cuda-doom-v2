@@ -93,9 +93,10 @@ Scene::Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceili
 
     std::function<SplitComparison(SceneEntity *item, Axis axis, float splitting_value)> entity_split_callback = [](
             SceneEntity *item, Axis axis, float splitting_value) {
-        auto min_bounds = item->position - glm::vec3(item->max_size.x / 2.0f, 0, item->max_size.x / 2.0f);
+        auto sprite_max_bounds = item->sprite.calculate_max_bounds();
+        auto min_bounds = item->position - glm::vec3(sprite_max_bounds.x / 2.0f, 0, sprite_max_bounds.x / 2.0f);
         auto max_bounds =
-                item->position + glm::vec3(item->max_size.x / 2.0f, item->max_size.y, item->max_size.x / 2.0f);
+                item->position + glm::vec3(sprite_max_bounds.x / 2.0f, sprite_max_bounds.y, sprite_max_bounds.x / 2.0f);
 
         bool is_greater_or_equal = min_bounds[axis] >= splitting_value ||
                                    max_bounds[axis] >= splitting_value;
@@ -472,9 +473,10 @@ void Scene::rebuild_entities(const std::vector<SceneEntity*>& scene_entities) {
 
     std::function<SplitComparison(SceneEntity *item, Axis axis, float splitting_value)> entity_split_callback = [](
             SceneEntity *item, Axis axis, float splitting_value) {
-        auto min_bounds = item->position - glm::vec3(item->max_size.x / 2.0f, 0, item->max_size.x / 2.0f);
+        auto sprite_max_bounds = item->sprite.calculate_max_bounds();
+        auto min_bounds = item->position - glm::vec3(sprite_max_bounds.x / 2.0f, 0, sprite_max_bounds.x / 2.0f);
         auto max_bounds =
-                item->position + glm::vec3(item->max_size.x / 2.0f, item->max_size.y, item->max_size.x / 2.0f);
+                item->position + glm::vec3(sprite_max_bounds.x / 2.0f, sprite_max_bounds.y, sprite_max_bounds.x / 2.0f);
 
         bool is_greater_or_equal = min_bounds[axis] >= splitting_value ||
                                    max_bounds[axis] >= splitting_value;

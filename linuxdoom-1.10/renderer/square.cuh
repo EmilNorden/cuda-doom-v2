@@ -15,6 +15,7 @@ struct Square {
               horizontal_len(glm::length(horizontal_vec)),
               vertical_len(glm::length(vertical_vec)),
               uv_scale(uv_scale),
+              uv_offset(0.0f),
               texture(texture) {
     }
 
@@ -24,6 +25,7 @@ struct Square {
     glm::vec2 uv_scale;
     float horizontal_len;
     float vertical_len;
+    float uv_offset;
 
     DeviceTexture *texture;
 };

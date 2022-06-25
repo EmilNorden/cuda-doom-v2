@@ -6,15 +6,14 @@
 #include "device_sprite.cuh"
 
 struct SceneEntity {
-    glm::vec2 max_size;
     glm::vec3 position;
 
     int frame;
     int rotation;
     DeviceSprite sprite;
 
-    SceneEntity(glm::vec2 max, glm::vec3 pos, int frame, int rotation, DeviceSprite sprite)
-            : max_size(max), position(pos), frame(frame), rotation(rotation), sprite(sprite) {
+    SceneEntity(glm::vec3 pos, int frame, int rotation, DeviceSprite sprite)
+            : position(pos), frame(frame), rotation(rotation), sprite(sprite) {
 
     }
 };

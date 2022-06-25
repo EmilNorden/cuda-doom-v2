@@ -36,7 +36,7 @@ __host__ __device__ bool intersects_wall(const Ray &ray, Square* wall, float &hi
     //v = Q2 * 0.01; // wall.uv_scale.y;
 
     u = Q1 * wall->uv_scale.x;
-    v = Q2 * wall->uv_scale.y;
+    v = (Q2 + wall->uv_offset) * wall->uv_scale.y;
 
     hit_distance = a;
     out_normal = N;
