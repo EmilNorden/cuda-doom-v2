@@ -7,10 +7,12 @@
 #include "renderer/device_random.cuh"
 #include "renderer/scene.cuh"
 #include "rt_raytracing_opengl.cuh"
+#include "rt_raytracing_scene.cuh"
 #include "opengl/common.h"
 #include "wad/graphics_data.cuh"
 #include "wad/wad.cuh"
 #include "wad/sprites.cuh"
+#include "p_spec.h"
 #include <glm/gtx/rotate_vector.hpp>
 
 // CUDA <-> OpenGL interop
@@ -32,6 +34,7 @@ namespace detail {
     std::vector<SceneEntity *> pending_attach_entities;
     std::vector<SceneEntity *> pending_detach_entities;
     std::vector<SceneEntity *> entities;
+    std::unordered_map<sector_t*, MovableSector> movable_sectors;
 }
 
 
@@ -40,8 +43,6 @@ bool ray_tracing_enabled;
 void print_cuda_device_info();
 
 void init_gl_buffers();
-
-Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data);
 
 void RT_ApplyPendingEntities();
 
@@ -198,7 +199,9 @@ void RT_BuildScene() {
         device::scene = nullptr;
     }
 
-    device::scene = RT_BuildScene(*detail::wad, *detail::graphics_data);
+    auto result = RT_BuildScene(*detail::wad, *detail::graphics_data);
+    device::scene = result.scene;
+    detail::movable_sectors = result.movable_sectors;
 }
 
 void RT_UpdateCameraFromPlayer(player_t *player) {
@@ -271,4 +274,65 @@ void RT_SwapRemoveEntity(std::vector<SceneEntity*> &collection, SceneEntity *ent
     //std::iter_swap(*iter, collection.back());
     //collection.pop_back();
     collection.erase(iter);
+}
+
+void RT_SectorCeilingHeightChanged(sector_t *sector) {
+    auto it = detail::movable_sectors.find(sector);
+    if(it == detail::movable_sectors.end()) {
+        return;
+    }
+
+    auto& movable_sector = it->second;
+
+    auto ceiling_height = RT_FixedToFloating(sector->ceilingheight);
+    for(auto wall : movable_sector.ceiling_walls) {
+        wall.wall->vertical_len = wall.adjacent_ceiling_height - ceiling_height;
+    }
+
+    for(auto wall : movable_sector.floor_walls) {
+        wall.wall->top_left.y = ceiling_height;
+        wall.wall->vertical_len = ceiling_height- wall.adjacent_floor_height;
+
+    }
+
+    auto door = (vldoor_t*)sector->specialdata;
+    for(auto wall : movable_sector.middle_walls) {
+        wall->top_left.y = RT_FixedToFloating(door->topheight);
+        wall->vertical_len = RT_FixedToFloating(door->topheight) - RT_FixedToFloating(sector->floorheight);
+        wall->vertical_vec = {0.0f, -1.0f, 0.0f};
+        wall->uv_scale.y = (wall->vertical_len / wall->texture->height()) / wall->vertical_len;
+    }
+
+    for(auto ceiling : movable_sector.ceiling) {
+        ceiling->v0.y = ceiling->v1.y = ceiling->v2.y = ceiling_height;
+    }
+}
+
+void RT_SectorFloorHeightChanged(sector_t *sector) {
+    auto it = detail::movable_sectors.find(sector);
+    if(it == detail::movable_sectors.end()) {
+        return;
+    }
+
+    auto& movable_sector = it->second;
+
+    auto floor_height = RT_FixedToFloating(sector->floorheight);
+    for(auto wall : movable_sector.floor_walls) {
+        wall.wall->top_left.y = floor_height;
+
+        wall.wall->vertical_len = glm::abs(wall.adjacent_floor_height - floor_height);
+    }
+
+
+    for(auto wall: movable_sector.middle_walls) {
+        wall->vertical_len = wall->top_left.y - floor_height;
+        wall->vertical_vec = {0.0f, -1.0f, 0.0f};
+        wall->uv_scale.y = (wall->vertical_len / wall->texture->height()) / wall->vertical_len;
+    }
+
+    for(auto floor : movable_sector.floor) {
+        floor->v0.y = floor_height;
+        floor->v1.y = floor_height;
+        floor->v2.y = floor_height;
+    }
 }

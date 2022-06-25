@@ -36,6 +36,7 @@ static const char
 #include "r_state.h"
 // Data.
 #include "sounds.h"
+#include "rt_raytracing.cuh"
 
 
 //
@@ -111,6 +112,7 @@ T_MovePlane
                     }
                     break;
             }
+            RT_SectorFloorHeightChanged(sector);
             break;
 
         case 1:
@@ -128,6 +130,7 @@ T_MovePlane
                             P_ChangeSector(sector, crush);
                             //return crushed;
                         }
+                        RT_SectorCeilingHeightChanged(sector);
                         return pastdest;
                     } else {
                         // COULD GET CRUSHED
@@ -136,10 +139,13 @@ T_MovePlane
                         flag = P_ChangeSector(sector, crush);
 
                         if (flag == true) {
-                            if (crush == true)
+                            if (crush == true) {
+                                RT_SectorCeilingHeightChanged(sector);
                                 return crushed;
+                            }
                             sector->ceilingheight = lastpos;
                             P_ChangeSector(sector, crush);
+                            RT_SectorCeilingHeightChanged(sector);
                             return crushed;
                         }
                     }
@@ -156,6 +162,7 @@ T_MovePlane
                             P_ChangeSector(sector, crush);
                             //return crushed;
                         }
+                        RT_SectorCeilingHeightChanged(sector);
                         return pastdest;
                     } else {
                         lastpos = sector->ceilingheight;
@@ -173,6 +180,7 @@ T_MovePlane
                     }
                     break;
             }
+            RT_SectorCeilingHeightChanged(sector);
             break;
 
     }

@@ -8,6 +8,7 @@
 #include "renderer/scene.cuh"
 #include "doomstat.h"
 #include "r_sky.h"
+#include "rt_raytracing_scene.cuh"
 #include <glm/glm.hpp>
 #include <vector>
 #include <algorithm>
@@ -44,14 +45,6 @@ private:
     std::unordered_map<short, DeviceTexture *> m_textures;
 
 };
-
-struct MovableSector {
-    std::vector<Square *> ceiling_walls;
-    std::vector<Square *> floor_walls;
-    std::vector<Triangle *> ceiling;
-    std::vector<Triangle *> floor;
-};
-
 
 struct SceneData {
     std::vector<Square *> walls;
@@ -105,7 +98,7 @@ Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData 
                          TextureCache &texture_cache,
                          int floor_height, int ceiling_height, vertex_t *start_vertex, vertex_t *end_vertex);
 
-Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
+BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
 
     TextureCache texture_cache;
     SceneData scene_data;
@@ -113,7 +106,7 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
     std::set<sector_t *> moving_sectors;
     line_t *line_ptr = lines;
     for (int i = 0; i < numlines; i++, line_ptr++) {
-        if (line_ptr->special == 117) {
+        if (line_ptr->special == 117 || line_ptr->special == 123) { // 117 is vertical door, 123 is fast "SR List fast"
             if (line_ptr->sidenum[1] == -1) { // Assuming sidenum[1] is left?
                 continue;
             }
@@ -272,10 +265,8 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
 
     }
 
-    // int i = -1;
     line_ptr = lines;
     for (int i = 0; i < numlines; i++, line_ptr++) {
-        //++i;
 
         auto start_vertex = line_ptr->v1;
         auto end_vertex = line_ptr->v2;
@@ -301,11 +292,14 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
             if (left_upper_wall) {
                 // if (line.special_type == 117) { // Vertical door
                 if (moving_sectors.find(left_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[left_side->sector].ceiling_walls.push_back(left_upper_wall);
+                    scene_data.movable_sector[left_side->sector].ceiling_walls.push_back({left_upper_wall,
+                                                                                          RT_FixedToFloating(
+                                                                                                  right_sector->ceilingheight)});
                 }
 
                 if (moving_sectors.find(right_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[right_side->sector].ceiling_walls.push_back(left_upper_wall);
+                    scene_data.movable_sector[right_side->sector].ceiling_walls.push_back(
+                            {left_upper_wall, RT_FixedToFloating(left_sector->ceilingheight)});
                 }
 
 
@@ -325,11 +319,15 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
             if (right_upper_wall) {
                 //if (line.special_type == 117) { // Vertical door
                 if (moving_sectors.find(left_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[left_side->sector].ceiling_walls.push_back(right_upper_wall);
+                    scene_data.movable_sector[left_side->sector].ceiling_walls.push_back({right_upper_wall,
+                                                                                          RT_FixedToFloating(
+                                                                                                  right_sector->ceilingheight)});
                 }
 
                 if (moving_sectors.find(right_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[right_side->sector].ceiling_walls.push_back(right_upper_wall);
+                    scene_data.movable_sector[right_side->sector].ceiling_walls.push_back({right_upper_wall,
+                                                                                           RT_FixedToFloating(
+                                                                                                   left_sector->ceilingheight)});
                 }
 
                 scene_data.walls.push_back(right_upper_wall);
@@ -348,11 +346,15 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
             if (left_lower_wall) {
                 //if (line.special_type == 117) { // Vertical door
                 if (moving_sectors.find(left_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[left_side->sector].floor_walls.push_back(left_lower_wall);
+                    scene_data.movable_sector[left_side->sector].floor_walls.push_back({left_lower_wall,
+                                                                                        RT_FixedToFloating(
+                                                                                                right_sector->floorheight)});
                 }
 
                 if (moving_sectors.find(right_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[right_side->sector].floor_walls.push_back(left_lower_wall);
+                    scene_data.movable_sector[right_side->sector].floor_walls.push_back({left_lower_wall,
+                                                                                         RT_FixedToFloating(
+                                                                                                 left_sector->floorheight)});
                 }
                 scene_data.walls.push_back(left_lower_wall);
             }
@@ -369,11 +371,15 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
             if (right_lower_wall) {
                 //if (line.special_type == 117) { // Vertical door
                 if (moving_sectors.find(left_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[left_side->sector].floor_walls.push_back(right_lower_wall);
+                    scene_data.movable_sector[left_side->sector].floor_walls.push_back({right_lower_wall,
+                                                                                        RT_FixedToFloating(
+                                                                                                right_sector->floorheight)});
                 }
 
                 if (moving_sectors.find(right_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[right_side->sector].floor_walls.push_back(right_lower_wall);
+                    scene_data.movable_sector[right_side->sector].floor_walls.push_back({right_lower_wall,
+                                                                                         RT_FixedToFloating(
+                                                                                                 left_sector->floorheight)});
                 }
                 scene_data.walls.push_back(right_lower_wall);
             }
@@ -398,7 +404,7 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
             if (wall) {
                 //if (line.special_type == 117) { // Vertical door
                 if (moving_sectors.find(side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[side->sector].floor_walls.push_back(wall);
+                    scene_data.movable_sector[side->sector].middle_walls.push_back( wall);
                 }
                 scene_data.walls.push_back(wall);
             }
@@ -425,7 +431,7 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
             if (wall) {
                 //if (line.special_type == 117) { // Vertical door
                 if (moving_sectors.find(side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[side->sector].floor_walls.push_back(wall);
+                    scene_data.movable_sector[side->sector].middle_walls.push_back( wall);
                 }
                 scene_data.walls.push_back(wall);
             }
@@ -438,7 +444,10 @@ Scene *RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
 
     auto sky_texture = get_device_texture(skytexture, wad, graphics_data, texture_cache);
 
-    return create_device_type<Scene>(scene_data.walls, scene_data.triangles, scene_data.entities, sky_texture);
+    return BuildSceneResult{
+            create_device_type<Scene>(scene_data.walls, scene_data.triangles, scene_data.entities, sky_texture),
+            scene_data.movable_sector
+    };
 }
 
 Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData &graphics_data,

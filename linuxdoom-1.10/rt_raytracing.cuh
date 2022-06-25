@@ -8,6 +8,7 @@
 #include "doomtype.h"
 #include "d_player.h"
 #include "wad/sprites.cuh"
+#include "r_defs.h"
 
 class Scene;
 namespace device {
@@ -43,6 +44,11 @@ void RT_WindowChanged();
 void RT_AttachToScene(SceneEntity *entity);
 
 void RT_DetachFromScene(SceneEntity *entity);
+
+void RT_SectorCeilingHeightChanged(sector_t *sector);
+
+void RT_SectorFloorHeightChanged(sector_t *sector);
+
 
 inline float RT_FixedToFloating(int value) {
     return static_cast<float>(value) / 65536.0f;
