@@ -14,6 +14,11 @@ std::optional<DeviceSprite> RT_GetDeviceSprite(spritenum_t sprite);
 
 SceneEntity *RT_CreateMapThing(mobjtype_t type, mobj_t *obj) {
     auto info = &mobjinfo[type];
+    if(info->flags & MF_NOSECTOR) {
+        // Is invisible
+        return nullptr;
+    }
+
     auto spawn_state = &states[info->spawnstate];
 
     auto sprite = RT_GetDeviceSprite(spawn_state->sprite);
