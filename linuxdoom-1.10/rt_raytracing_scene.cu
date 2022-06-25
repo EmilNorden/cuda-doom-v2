@@ -96,7 +96,7 @@ Square *create_sector_adjacent_wall(short texture_number,
 
 Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData &graphics_data,
                          TextureCache &texture_cache,
-                         int floor_height, int ceiling_height, vertex_t *start_vertex, vertex_t *end_vertex);
+                         int floor_height, int ceiling_height, vertex_t *start_vertex, vertex_t *end_vertex, int line_flags);
 
 BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
 
@@ -270,6 +270,7 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
 
         auto start_vertex = line_ptr->v1;
         auto end_vertex = line_ptr->v2;
+        auto a = line_ptr->flags;
 
         // REminder: line_ptr->sidenum[1] is left side
         if (line_ptr->sidenum[0] > -1 && line_ptr->sidenum[1] > -1) {
@@ -399,7 +400,8 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                     sector->floorheight,
                     sector->ceilingheight,
                     start_vertex,
-                    end_vertex);
+                    end_vertex,
+                    line_ptr->flags);
 
             if (wall) {
                 //if (line.special_type == 117) { // Vertical door
@@ -426,7 +428,8 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                     sector->floorheight,
                     sector->ceilingheight,
                     start_vertex,
-                    end_vertex);
+                    end_vertex,
+                    line_ptr->flags);
 
             if (wall) {
                 //if (line.special_type == 117) { // Vertical door
@@ -452,7 +455,7 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
 
 Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData &graphics_data,
                          TextureCache &texture_cache,
-                         int floor_height, int ceiling_height, vertex_t *start_vertex, vertex_t *end_vertex) {
+                         int floor_height, int ceiling_height, vertex_t *start_vertex, vertex_t *end_vertex, int line_flags) {
     if (texture_number == 0) {
         return nullptr;
     }
@@ -477,7 +480,13 @@ Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData 
                               static_cast<float>(glm::length(bottom_left - top_left) / texture->height()));
     uv_scale /= glm::vec2(horizontal_len, vertical_len);
 
-    return create_device_type<Square>(top_left, top_right - top_left, bottom_left - top_left, uv_scale, texture);
+    auto square = create_device_type<Square>(top_left, top_right - top_left, bottom_left - top_left, uv_scale, texture);
+
+    if(line_flags & ML_DONTPEGBOTTOM) {
+        square->uv_offset = texture->height() - vertical_len;
+    }
+
+    return square;
 }
 
 Square *create_sector_adjacent_wall(short texture_number,
