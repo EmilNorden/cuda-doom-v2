@@ -242,6 +242,7 @@ intersects_walls_node(const Ray &ray, TreeNode<Square *> *node, Intersection &in
             intersection.v = v;
             intersection.texture = node->items[i]->texture;
             intersection.world_normal = normal;
+
             success = true;
         }
     }

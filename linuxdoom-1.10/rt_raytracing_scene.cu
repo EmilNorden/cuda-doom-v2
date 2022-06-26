@@ -277,6 +277,10 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
         auto start_vertex = line_ptr->v1;
         auto end_vertex = line_ptr->v2;
 
+        if(i == 247) {
+            int ppp = 43;
+        }
+
         // REminder: line_ptr->sidenum[1] is left side
         if (line_ptr->sidenum[0] > -1 && line_ptr->sidenum[1] > -1) {
             auto left_side = &sides[line_ptr->sidenum[1]];
@@ -483,6 +487,7 @@ Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData 
 
     if (line_flags & ML_DONTPEGBOTTOM) {
         square->uv_offset = texture->height() - vertical_len;
+        square->texture_wrapping = false;
     }
 
     return square;

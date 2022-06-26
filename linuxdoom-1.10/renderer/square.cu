@@ -38,6 +38,12 @@ __host__ __device__ bool intersects_wall(const Ray &ray, Square* wall, float &hi
     u = Q1 * wall->uv_scale.x;
     v = (Q2 + wall->uv_offset) * wall->uv_scale.y;
 
+    if(!wall->texture_wrapping) {
+        if(v < 0.0 || v > 1.0) {
+            return false;
+        }
+    }
+
     hit_distance = a;
     out_normal = N;
     return true;

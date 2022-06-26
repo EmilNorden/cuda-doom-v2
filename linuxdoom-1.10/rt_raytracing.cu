@@ -316,7 +316,7 @@ void RT_CeilingChanged(sector_t *sector) {
     auto& movable_sector = it->second;
     auto ceiling = (ceiling_t*)sector->specialdata;
     auto ceiling_height = RT_FixedToFloating(sector->ceilingheight);
-    
+
     for(auto wall : movable_sector.top_walls) {
         wall.wall->top_left.y = glm::max(wall.adjacent_ceiling_height, ceiling_height);
         wall.wall->vertical_len = glm::abs(wall.adjacent_ceiling_height - ceiling_height);
