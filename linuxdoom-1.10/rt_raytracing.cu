@@ -276,7 +276,7 @@ void RT_SwapRemoveEntity(std::vector<SceneEntity*> &collection, SceneEntity *ent
     collection.erase(iter);
 }
 
-void RT_SectorCeilingHeightChanged(sector_t *sector) {
+void RT_VerticalDoorChanged(sector_t *sector) {
     auto it = detail::sector_geometry.find(sector);
     if(it == detail::sector_geometry.end()) {
         return;
@@ -304,6 +304,38 @@ void RT_SectorCeilingHeightChanged(sector_t *sector) {
 
     for(auto ceiling : movable_sector.ceiling) {
         ceiling->v0.y = ceiling->v1.y = ceiling->v2.y = ceiling_height;
+    }
+}
+
+void RT_CeilingChanged(sector_t *sector) {
+    auto it = detail::sector_geometry.find(sector);
+    if(it == detail::sector_geometry.end()) {
+        return;
+    }
+
+    auto& movable_sector = it->second;
+    auto ceiling = (ceiling_t*)sector->specialdata;
+    auto ceiling_height = RT_FixedToFloating(sector->ceilingheight);
+    
+    for(auto wall : movable_sector.top_walls) {
+        wall.wall->top_left.y = glm::max(wall.adjacent_ceiling_height, ceiling_height);
+        wall.wall->vertical_len = glm::abs(wall.adjacent_ceiling_height - ceiling_height);
+        wall.wall->uv_offset = glm::abs(ceiling_height - RT_FixedToFloating(sector->floorheight)); // door_total_height - (wall.adjacent_ceiling_height - ceiling_height);
+        // Dirty hack. Not sure if it'll work for all cases, but it certainly helps in map 2.
+        if(wall.adjacent_ceiling_height < ceiling_height) {
+            wall.wall->uv_offset -= glm::abs(wall.adjacent_ceiling_height - wall.wall->top_left.y) * 2;
+        }
+    }
+
+    for(auto wall : movable_sector.adjacent_top_walls) {
+        wall.wall->top_left.y = RT_FixedToFloating(ceiling->topheight);
+        wall.wall->vertical_len = 100;
+        wall.wall->uv_offset = ceiling_height - RT_FixedToFloating(sector->floorheight); // door_total_height - (wall.adjacent_ceiling_height - ceiling_height);
+    }
+
+
+    for(auto ceiling_tri: movable_sector.ceiling) {
+        ceiling_tri->v0.y = ceiling_tri->v1.y = ceiling_tri->v2.y = ceiling_height;
     }
 }
 

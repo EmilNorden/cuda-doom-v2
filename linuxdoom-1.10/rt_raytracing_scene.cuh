@@ -25,6 +25,7 @@ struct BottomWall {
 
 struct SectorGeometry {
     std::vector<TopWall> top_walls;
+    std::vector<TopWall> adjacent_top_walls;
     std::vector<Square*> middle_walls;
     std::vector<BottomWall> bottom_walls;
     std::vector<BottomWall> adjacent_bottom_walls;

@@ -285,6 +285,12 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
             auto left_sector = left_side->sector;
             auto right_sector = right_side->sector;
 
+            auto left_tag = left_sector->tag;
+            auto right_tag = right_sector->tag;
+            if(left_tag == 14 || right_tag == 14) {
+                int dffdfg=43;
+            }
+
             auto left_upper_wall = create_sector_adjacent_wall(
                     left_side->toptexture,
                     wad,
@@ -301,7 +307,7 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                                                                                            right_sector->ceilingheight)});
 
 
-                scene_data.sector_geometry[right_side->sector].top_walls.push_back(
+                scene_data.sector_geometry[right_side->sector].adjacent_top_walls.push_back(
                         {left_upper_wall, RT_FixedToFloating(left_sector->ceilingheight)});
 
                 scene_data.walls.push_back(left_upper_wall);
@@ -324,7 +330,7 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                                                                                            right_sector->ceilingheight)});
 
 
-                scene_data.sector_geometry[right_side->sector].top_walls.push_back({right_upper_wall,
+                scene_data.sector_geometry[right_side->sector].adjacent_top_walls.push_back({right_upper_wall,
                                                                                     RT_FixedToFloating(
                                                                                             left_sector->ceilingheight)});
 
@@ -387,6 +393,9 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
         if (line_ptr->sidenum[1] > -1) {
             auto side = &sides[line_ptr->sidenum[1]];
             auto sector = side->sector;
+            if(sector->tag == 14) {
+                int sdfsdf = 43;
+            }
 
             auto wall = create_main_wall(
                     side->midtexture,
@@ -410,6 +419,10 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
         if (line_ptr->sidenum[0] > -1) {
             auto side = &sides[line_ptr->sidenum[0]];
             auto sector = side->sector;
+
+            if(sector->tag == 14) {
+                int fgfgf=43;
+            }
 
             auto wall = create_main_wall(
                     side->midtexture,

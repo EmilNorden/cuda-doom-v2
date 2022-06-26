@@ -45,7 +45,9 @@ void RT_AttachToScene(SceneEntity *entity);
 
 void RT_DetachFromScene(SceneEntity *entity);
 
-void RT_SectorCeilingHeightChanged(sector_t *sector);
+void RT_VerticalDoorChanged(sector_t *sector);
+
+void RT_CeilingChanged(sector_t *sector);
 
 void RT_SectorFloorHeightChanged(sector_t *sector);
 

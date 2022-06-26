@@ -38,6 +38,7 @@ static const char
 // Data.
 #include "dstrings.h"
 #include "sounds.h"
+#include "rt_raytracing.cuh"
 
 #if 0
 //
@@ -115,6 +116,7 @@ void T_VerticalDoor(vldoor_t *door) {
                               door->speed,
                               door->sector->floorheight,
                               false, 1, door->direction);
+            RT_VerticalDoorChanged(door->sector);
             if (res == pastdest) {
                 switch (door->type) {
                     case blazeRaise:
@@ -160,7 +162,7 @@ void T_VerticalDoor(vldoor_t *door) {
                               door->speed,
                               door->topheight,
                               false, 1, door->direction);
-
+            RT_VerticalDoorChanged(door->sector);
             if (res == pastdest) {
                 switch (door->type) {
                     case blazeRaise:
