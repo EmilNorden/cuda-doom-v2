@@ -49,7 +49,7 @@ private:
 struct Side {
     Square *top;
     Square *middle;
-    Square *lower;
+    Square *bottom;
 };
 
 namespace detail {
@@ -62,7 +62,7 @@ struct SceneData {
     std::vector<Triangle *> triangles;
     std::vector<SceneEntity *> entities;
     std::vector<DeviceTexture *> device_textures;
-    std::unordered_map<sector_t *, MovableSector> movable_sector;
+    std::unordered_map<sector_t *, SectorGeometry> sector_geometry;
 };
 
 typedef std::vector<glm::vec2> Polygon;
@@ -84,9 +84,7 @@ bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon);
 void create_mesh_from_polygon(
         sector_t *sector,
         SceneData &scene_data,
-        std::vector<glm::vec2> &polygon,
-        bool is_moving_sector,
-        int sector_number);
+        std::vector<glm::vec2> &polygon);
 
 DeviceTexture *get_device_texture(short texture_number,
                                   wad::Wad &wad,
@@ -108,20 +106,6 @@ Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData 
 
 BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
     SceneData scene_data;
-
-    std::set<sector_t *> moving_sectors;
-    line_t *line_ptr = lines;
-    for (int i = 0; i < numlines; i++, line_ptr++) {
-        if (line_ptr->special == 117 || line_ptr->special == 123) { // 117 is vertical door, 123 is fast "SR List fast"
-            if (line_ptr->sidenum[1] == -1) { // Assuming sidenum[1] is left?
-                continue;
-            }
-
-            int asd = line_ptr->sidenum[1];
-            auto &side = sides[line_ptr->sidenum[1]];
-            moving_sectors.insert(side.sector);
-        }
-    }
 
     sector_t *sector_ptr = sectors;
     for (int sector_number = 0; sector_number < numsectors; sector_number++, sector_ptr++) {
@@ -263,19 +247,16 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
             create_mesh_from_polygon(
                     sector_ptr,
                     scene_data,
-                    polygons[i],
-                    moving_sectors.find(sector_ptr) != moving_sectors.end(),
-                    sector_number);
+                    polygons[i]);
         }
 
     }
 
-    line_ptr = lines;
+    auto line_ptr = lines;
     for (int i = 0; i < numlines; i++, line_ptr++) {
 
         auto start_vertex = line_ptr->v1;
         auto end_vertex = line_ptr->v2;
-        auto a = line_ptr->flags;
 
         // REminder: line_ptr->sidenum[1] is left side
         if (line_ptr->sidenum[0] > -1 && line_ptr->sidenum[1] > -1) {
@@ -296,17 +277,13 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
 
             if (left_upper_wall) {
                 // if (line.special_type == 117) { // Vertical door
-                if (moving_sectors.find(left_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[left_side->sector].ceiling_walls.push_back({left_upper_wall,
-                                                                                          RT_FixedToFloating(
-                                                                                                  right_sector->ceilingheight)});
-                }
+                scene_data.sector_geometry[left_side->sector].top_walls.push_back({left_upper_wall,
+                                                                                       RT_FixedToFloating(
+                                                                                               right_sector->ceilingheight)});
 
-                if (moving_sectors.find(right_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[right_side->sector].ceiling_walls.push_back(
-                            {left_upper_wall, RT_FixedToFloating(left_sector->ceilingheight)});
-                }
 
+                scene_data.sector_geometry[right_side->sector].top_walls.push_back(
+                        {left_upper_wall, RT_FixedToFloating(left_sector->ceilingheight)});
 
                 scene_data.walls.push_back(left_upper_wall);
                 detail::sidedef_to_wall_lookup[left_side].top = left_upper_wall;
@@ -323,17 +300,15 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
 
             if (right_upper_wall) {
                 //if (line.special_type == 117) { // Vertical door
-                if (moving_sectors.find(left_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[left_side->sector].ceiling_walls.push_back({right_upper_wall,
-                                                                                          RT_FixedToFloating(
-                                                                                                  right_sector->ceilingheight)});
-                }
+                scene_data.sector_geometry[left_side->sector].top_walls.push_back({right_upper_wall,
+                                                                                       RT_FixedToFloating(
+                                                                                               right_sector->ceilingheight)});
 
-                if (moving_sectors.find(right_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[right_side->sector].ceiling_walls.push_back({right_upper_wall,
-                                                                                           RT_FixedToFloating(
-                                                                                                   left_sector->ceilingheight)});
-                }
+
+                scene_data.sector_geometry[right_side->sector].top_walls.push_back({right_upper_wall,
+                                                                                        RT_FixedToFloating(
+                                                                                                left_sector->ceilingheight)});
+
 
                 scene_data.walls.push_back(right_upper_wall);
                 detail::sidedef_to_wall_lookup[right_side].top = right_upper_wall;
@@ -350,19 +325,17 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
 
             if (left_lower_wall) {
                 //if (line.special_type == 117) { // Vertical door
-                if (moving_sectors.find(left_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[left_side->sector].floor_walls.push_back({left_lower_wall,
-                                                                                        RT_FixedToFloating(
-                                                                                                right_sector->floorheight)});
-                }
+                scene_data.sector_geometry[left_side->sector].bottom_walls.push_back({left_lower_wall,
+                                                                                     RT_FixedToFloating(
+                                                                                             right_sector->floorheight)});
 
-                if (moving_sectors.find(right_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[right_side->sector].floor_walls.push_back({left_lower_wall,
-                                                                                         RT_FixedToFloating(
-                                                                                                 left_sector->floorheight)});
-                }
+
+                scene_data.sector_geometry[right_side->sector].adjacent_bottom_walls.push_back({left_lower_wall,
+                                                                                      RT_FixedToFloating(
+                                                                                              left_sector->floorheight)});
+
                 scene_data.walls.push_back(left_lower_wall);
-                detail::sidedef_to_wall_lookup[left_side].lower = left_lower_wall;
+                detail::sidedef_to_wall_lookup[left_side].bottom = left_lower_wall;
             }
 
             auto right_lower_wall = create_sector_adjacent_wall(
@@ -376,19 +349,17 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
 
             if (right_lower_wall) {
                 //if (line.special_type == 117) { // Vertical door
-                if (moving_sectors.find(left_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[left_side->sector].floor_walls.push_back({right_lower_wall,
-                                                                                        RT_FixedToFloating(
-                                                                                                right_sector->floorheight)});
-                }
+                scene_data.sector_geometry[left_side->sector].bottom_walls.push_back({right_lower_wall,
+                                                                                     RT_FixedToFloating(
+                                                                                             right_sector->floorheight)});
 
-                if (moving_sectors.find(right_side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[right_side->sector].floor_walls.push_back({right_lower_wall,
-                                                                                         RT_FixedToFloating(
-                                                                                                 left_sector->floorheight)});
-                }
+
+                scene_data.sector_geometry[right_side->sector].adjacent_bottom_walls.push_back({right_lower_wall,
+                                                                                      RT_FixedToFloating(
+                                                                                              left_sector->floorheight)});
+
                 scene_data.walls.push_back(right_lower_wall);
-                detail::sidedef_to_wall_lookup[right_side].lower = right_lower_wall;
+                detail::sidedef_to_wall_lookup[right_side].bottom = right_lower_wall;
             }
 
         }
@@ -410,9 +381,8 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
 
             if (wall) {
                 //if (line.special_type == 117) { // Vertical door
-                if (moving_sectors.find(side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[side->sector].middle_walls.push_back(wall);
-                }
+                scene_data.sector_geometry[side->sector].middle_walls.push_back(wall);
+
                 scene_data.walls.push_back(wall);
                 detail::sidedef_to_wall_lookup[side].middle = wall;
             }
@@ -434,9 +404,8 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
 
             if (wall) {
                 //if (line.special_type == 117) { // Vertical door
-                if (moving_sectors.find(side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[side->sector].middle_walls.push_back(wall);
-                }
+                scene_data.sector_geometry[side->sector].middle_walls.push_back(wall);
+
                 scene_data.walls.push_back(wall);
                 detail::sidedef_to_wall_lookup[side].middle = wall;
             }
@@ -447,7 +416,7 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
 
     return BuildSceneResult{
             create_device_type<Scene>(scene_data.walls, scene_data.triangles, scene_data.entities, sky_texture),
-            scene_data.movable_sector
+            scene_data.sector_geometry
     };
 }
 
@@ -493,9 +462,6 @@ Square *create_sector_adjacent_wall(short texture_number,
                                     vertex_t *start_vertex,
                                     vertex_t *end_vertex) {
     if (texture_number == 0) {
-        return nullptr;
-    }
-    if (front_sector_height == back_sector_height) {
         return nullptr;
     }
 
@@ -691,42 +657,25 @@ bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon) {
 void create_mesh_from_polygon(
         sector_t *sector,
         SceneData &scene_data,
-        std::vector<glm::vec2> &polygon,
-        bool is_moving_sector,
-        int sector_number) {
-
-    auto foo = is_triangle_cw_winding(polygon[0], polygon[1], polygon[2]);
-    auto bar = is_polygon_cw_winding(polygon);
-
+        std::vector<glm::vec2> &polygon) {
     if (!is_polygon_cw_winding(polygon)) {
         std::reverse(polygon.begin(), polygon.end());
     }
 
     auto floor_texture = get_device_texture_from_flat(sector->floorpic);
-    /*auto floor_texture = get_device_texture(sector.floor_texture, wad, graphics_data,
-                                            scene_data.device_textures, device_texture_lookup, true);*/
-
 
     std::vector<glm::vec3> polys3d;
-    // polys3d.reserve(polygon.size());
     for (auto &p: polygon) {
         polys3d.emplace_back(p.x, RT_FixedToFloating(sector->floorheight), p.y);
     }
     auto triangles = triangulate_polygon(polys3d, floor_texture);
 
-    if (is_moving_sector) {
-        auto &movable_sector = scene_data.movable_sector[sector];
-        movable_sector.floor.insert(movable_sector.floor.end(), triangles.begin(), triangles.end());
-    }
-
+    auto &sector_geometry = scene_data.sector_geometry[sector];
+    scene_data.sector_geometry[sector].floor.insert(sector_geometry.floor.end(), triangles.begin(), triangles.end());
     scene_data.triangles.insert(scene_data.triangles.end(), triangles.begin(), triangles.end());
 
     if (sector->ceilingpic != skyflatnum) {//sector.ceiling_texture != "F_SKY1") {
         auto ceiling_texture = get_device_texture_from_flat(sector->ceilingpic);
-        /*auto ceiling_texture = get_device_texture(sector.ceiling_texture, wad, graphics_data,
-                                                  scene_data.device_textures, device_texture_lookup,
-                                                  true);*/
-
 
         std::vector<Triangle *> ceiling_triangles;
         for (auto &triangle: triangles) {
@@ -737,11 +686,8 @@ void create_mesh_from_polygon(
             ceiling_triangles.push_back(ceiling_triangle);
         }
 
-        if (is_moving_sector) {
-            auto &movable_sector = scene_data.movable_sector[sector];
-            movable_sector.ceiling.insert(movable_sector.ceiling.end(), triangles.begin(), triangles.end());
-        }
-
+        sector_geometry.ceiling.insert(sector_geometry.ceiling.end(), ceiling_triangles.begin(),
+                                       ceiling_triangles.end());
         scene_data.triangles.insert(scene_data.triangles.end(), ceiling_triangles.begin(), ceiling_triangles.end());
     }
 }
@@ -811,6 +757,6 @@ void RT_ChangeSideMidTexture(side_t *side, int texture_num) {
 }
 
 void RT_ChangeSideBottomTexture(side_t *side, int texture_num) {
-    detail::sidedef_to_wall_lookup[side].lower->texture = get_device_texture(texture_num, *detail::wad,
-                                                                             *detail::graphics_data);
+    detail::sidedef_to_wall_lookup[side].bottom->texture = get_device_texture(texture_num, *detail::wad,
+                                                                              *detail::graphics_data);
 }

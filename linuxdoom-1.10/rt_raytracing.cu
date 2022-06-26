@@ -34,7 +34,7 @@ namespace detail {
     std::vector<SceneEntity *> pending_attach_entities;
     std::vector<SceneEntity *> pending_detach_entities;
     std::vector<SceneEntity *> entities;
-    std::unordered_map<sector_t*, MovableSector> movable_sectors;
+    std::unordered_map<sector_t*, SectorGeometry> sector_geometry;
 }
 
 
@@ -201,7 +201,7 @@ void RT_BuildScene() {
 
     auto result = RT_BuildScene(*detail::wad, *detail::graphics_data);
     device::scene = result.scene;
-    detail::movable_sectors = result.movable_sectors;
+    detail::sector_geometry = result.sector_geometry;
 }
 
 void RT_UpdateCameraFromPlayer(player_t *player) {
@@ -277,8 +277,8 @@ void RT_SwapRemoveEntity(std::vector<SceneEntity*> &collection, SceneEntity *ent
 }
 
 void RT_SectorCeilingHeightChanged(sector_t *sector) {
-    auto it = detail::movable_sectors.find(sector);
-    if(it == detail::movable_sectors.end()) {
+    auto it = detail::sector_geometry.find(sector);
+    if(it == detail::sector_geometry.end()) {
         return;
     }
 
@@ -289,13 +289,13 @@ void RT_SectorCeilingHeightChanged(sector_t *sector) {
     auto door_total_height = RT_FixedToFloating(door->topheight) - RT_FixedToFloating(sector->floorheight);
 
     // Actual door
-    for(auto wall : movable_sector.ceiling_walls) {
+    for(auto wall : movable_sector.top_walls) {
         wall.wall->vertical_len = wall.adjacent_ceiling_height - ceiling_height;
         wall.wall->uv_offset = ceiling_height - RT_FixedToFloating(sector->floorheight); // door_total_height - (wall.adjacent_ceiling_height - ceiling_height);
     }
 
 
-    for(auto wall : movable_sector.floor_walls) {
+    for(auto wall : movable_sector.bottom_walls) {
         wall.wall->top_left.y = ceiling_height;
         wall.wall->vertical_len = ceiling_height- wall.adjacent_floor_height;
     }
@@ -314,18 +314,27 @@ void RT_SectorCeilingHeightChanged(sector_t *sector) {
 }
 
 void RT_SectorFloorHeightChanged(sector_t *sector) {
-    auto it = detail::movable_sectors.find(sector);
-    if(it == detail::movable_sectors.end()) {
+    auto it = detail::sector_geometry.find(sector);
+    if(it == detail::sector_geometry.end()) {
         return;
     }
 
     auto& movable_sector = it->second;
 
     auto floor_height = RT_FixedToFloating(sector->floorheight);
-    for(auto wall : movable_sector.floor_walls) {
+    for(auto wall : movable_sector.bottom_walls) {
         wall.wall->top_left.y = floor_height;
 
         wall.wall->vertical_len = glm::abs(wall.adjacent_floor_height - floor_height);
+        wall.wall->vertical_vec = {0, -1, 0};
+        wall.wall->uv_scale.y = ( wall.wall->vertical_len /  wall.wall->texture->height()) /  wall.wall->vertical_len;
+    }
+
+    for(auto wall : movable_sector.adjacent_bottom_walls) {
+        wall.wall->top_left.y = glm::max(wall.adjacent_floor_height, floor_height);
+        wall.wall->vertical_len = glm::length(wall.adjacent_floor_height - floor_height);
+        wall.wall->vertical_vec = {0, -1, 0};
+        wall.wall->uv_scale.y = ( wall.wall->vertical_len /  wall.wall->texture->height()) /  wall.wall->vertical_len;
     }
 
 

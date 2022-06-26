@@ -13,27 +13,32 @@ namespace device {
 
 }
 
-struct CeilingWall {
+struct TopWall {
     Square *wall;
     float adjacent_ceiling_height; // Does this need to be a pointer to sector_t to get the "fresh" value in case adjacent sectors update simultaneously?
 };
 
-struct FloorWall {
+struct BottomWall {
     Square *wall;
     float adjacent_floor_height;
 };
 
-struct MovableSector {
-    std::vector<CeilingWall> ceiling_walls;
+struct SectorGeometry {
+    std::vector<TopWall> top_walls;
     std::vector<Square*> middle_walls;
-    std::vector<FloorWall> floor_walls;
+    std::vector<BottomWall> bottom_walls;
+    std::vector<BottomWall> adjacent_bottom_walls;
     std::vector<Triangle *> ceiling;
     std::vector<Triangle *> floor;
 };
 
+struct VerticalDoor {
+    SectorGeometry geometry;
+};
+
 struct BuildSceneResult {
     Scene *scene;
-    std::unordered_map<sector_t *, MovableSector> movable_sectors;
+    std::unordered_map<sector_t *, SectorGeometry> sector_geometry;
 };
 
 BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data);
