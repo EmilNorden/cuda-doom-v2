@@ -294,12 +294,6 @@ void RT_SectorCeilingHeightChanged(sector_t *sector) {
         wall.wall->uv_offset = ceiling_height - RT_FixedToFloating(sector->floorheight); // door_total_height - (wall.adjacent_ceiling_height - ceiling_height);
     }
 
-
-    for(auto wall : movable_sector.bottom_walls) {
-        wall.wall->top_left.y = ceiling_height;
-        wall.wall->vertical_len = ceiling_height- wall.adjacent_floor_height;
-    }
-
     // Side walls, ie door frame.
     for(auto wall : movable_sector.middle_walls) {
         wall->top_left.y = RT_FixedToFloating(door->topheight);

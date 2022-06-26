@@ -76,7 +76,7 @@ P_SetMobjState
         // Call action functions when the state is set
         //TODO: ============================================= TEMPORARILY COMMENTED OUT SO I DONT HAVE TO ACTUALLY PLAY THE GAME ===================================================
         //if (st->action)
-          //  st->action(nullptr, nullptr, mobj);
+        //    st->action(nullptr, nullptr, mobj);
 
         state = st->nextstate;
     } while (!mobj->tics);

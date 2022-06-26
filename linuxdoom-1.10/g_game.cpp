@@ -778,6 +778,9 @@ void G_PlayerReborn(int player) {
     p->weaponowned[wp_pistol] = true;
     p->ammo[am_clip] = 50;
 
+    p->weaponowned[wp_plasma] = true;
+    p->ammo[am_cell] = 999;
+
     for (i = 0; i < NUMAMMO; i++)
         p->maxammo[i] = maxammo[i];
 
