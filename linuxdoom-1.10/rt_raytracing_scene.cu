@@ -13,6 +13,9 @@
 #include <vector>
 #include <algorithm>
 #include <set>
+// Below are only for debugging polygons
+#include <FreeImage.h>
+#include <fmt/core.h>
 
 class TextureCache {
 public:
@@ -67,6 +70,8 @@ struct SceneData {
 
 typedef std::vector<glm::vec2> Polygon;
 
+void debug_polygon(Polygon &polygon, const std::string& name);
+
 bool on_segment(glm::vec2 p, glm::vec2 q, glm::vec2 r);
 
 int orientation(glm::vec2 p, glm::vec2 q, glm::vec2 r);
@@ -77,7 +82,7 @@ bool is_point_inside_polygon(const Polygon &container, const glm::vec2 &point);
 
 bool is_polygon_inside_other(const Polygon &container, const Polygon &test_polygon);
 
-void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_index, size_t child_polygon_index);
+void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_index, size_t child_polygon_index, std::vector<bool>& parent_polygon_weld_points);
 
 bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon);
 
@@ -106,7 +111,7 @@ Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData 
 
 BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
     SceneData scene_data;
-
+    FreeImage_Initialise();
     sector_t *sector_ptr = sectors;
     for (int sector_number = 0; sector_number < numsectors; sector_number++, sector_ptr++) {
 
@@ -130,6 +135,7 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
         }
 
         // FIND ALL POLYGONS
+        auto poly_count = 0;
         std::vector<Polygon> polygons;
         while (!all_lines.empty()) {
             std::vector<line_t> sorted_lines;
@@ -211,6 +217,11 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
         };
 
         std::vector<bool> polygon_is_pruned(polygons.size(), false);
+        std::vector<std::vector<bool>> polygon_vertices_weld_points;
+        polygon_vertices_weld_points.resize(polygons.size());
+        for(int i = 0; i < polygons.size(); ++i) {
+            polygon_vertices_weld_points[i] = std::vector<bool>(polygons[i].size(), false);
+        }
 
         // FLATTEN PARENT-CHILDS INTO SINGLE POLYGONS
         while (true) {
@@ -224,7 +235,13 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                 auto children = parent_map.equal_range(i);
                 for (auto it = children.first; it != children.second; ++it) {
                     if (is_direct_ancestor(i, it->second, parent_map) && is_childless(it->second, parent_map)) {
-                        combine_polygons(polygons, i, it->second);
+                        if(sector_number == 88) {
+                            auto foo = 334;
+                        }
+                        combine_polygons(polygons, i, it->second, polygon_vertices_weld_points[i]);
+                        if(sector_number == 88) {
+                            debug_polygon(polygons[i], fmt::format("combine_{}_{}_{}", sector_number, i, it->second));
+                        }
                         polygon_is_pruned[it->second] = true;
                         it = parent_map.erase(it);
                         has_pruned_polygon = true;
@@ -243,6 +260,8 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
             if (polygon_is_pruned[i]) {
                 continue;
             }
+
+            //debug_polygon(polygons[i], fmt::format("{}_{}", sector_number, i));
 
             create_mesh_from_polygon(
                     sector_ptr,
@@ -278,8 +297,8 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
             if (left_upper_wall) {
                 // if (line.special_type == 117) { // Vertical door
                 scene_data.sector_geometry[left_side->sector].top_walls.push_back({left_upper_wall,
-                                                                                       RT_FixedToFloating(
-                                                                                               right_sector->ceilingheight)});
+                                                                                   RT_FixedToFloating(
+                                                                                           right_sector->ceilingheight)});
 
 
                 scene_data.sector_geometry[right_side->sector].top_walls.push_back(
@@ -301,13 +320,13 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
             if (right_upper_wall) {
                 //if (line.special_type == 117) { // Vertical door
                 scene_data.sector_geometry[left_side->sector].top_walls.push_back({right_upper_wall,
-                                                                                       RT_FixedToFloating(
-                                                                                               right_sector->ceilingheight)});
+                                                                                   RT_FixedToFloating(
+                                                                                           right_sector->ceilingheight)});
 
 
                 scene_data.sector_geometry[right_side->sector].top_walls.push_back({right_upper_wall,
-                                                                                        RT_FixedToFloating(
-                                                                                                left_sector->ceilingheight)});
+                                                                                    RT_FixedToFloating(
+                                                                                            left_sector->ceilingheight)});
 
 
                 scene_data.walls.push_back(right_upper_wall);
@@ -326,13 +345,13 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
             if (left_lower_wall) {
                 //if (line.special_type == 117) { // Vertical door
                 scene_data.sector_geometry[left_side->sector].bottom_walls.push_back({left_lower_wall,
-                                                                                     RT_FixedToFloating(
-                                                                                             right_sector->floorheight)});
+                                                                                      RT_FixedToFloating(
+                                                                                              right_sector->floorheight)});
 
 
                 scene_data.sector_geometry[right_side->sector].adjacent_bottom_walls.push_back({left_lower_wall,
-                                                                                      RT_FixedToFloating(
-                                                                                              left_sector->floorheight)});
+                                                                                                RT_FixedToFloating(
+                                                                                                        left_sector->floorheight)});
 
                 scene_data.walls.push_back(left_lower_wall);
                 detail::sidedef_to_wall_lookup[left_side].bottom = left_lower_wall;
@@ -350,13 +369,13 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
             if (right_lower_wall) {
                 //if (line.special_type == 117) { // Vertical door
                 scene_data.sector_geometry[left_side->sector].bottom_walls.push_back({right_lower_wall,
-                                                                                     RT_FixedToFloating(
-                                                                                             right_sector->floorheight)});
+                                                                                      RT_FixedToFloating(
+                                                                                              right_sector->floorheight)});
 
 
                 scene_data.sector_geometry[right_side->sector].adjacent_bottom_walls.push_back({right_lower_wall,
-                                                                                      RT_FixedToFloating(
-                                                                                              left_sector->floorheight)});
+                                                                                                RT_FixedToFloating(
+                                                                                                        left_sector->floorheight)});
 
                 scene_data.walls.push_back(right_lower_wall);
                 detail::sidedef_to_wall_lookup[right_side].bottom = right_lower_wall;
@@ -589,7 +608,7 @@ bool is_polygon_inside_other(const Polygon &container, const Polygon &test_polyg
     return false;
 }
 
-void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_index, size_t child_polygon_index) {
+void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_index, size_t child_polygon_index, std::vector<bool>& parent_polygon_weld_points) {
     auto &parent_polygon = polygons[parent_polygon_index];
     auto &child_polygon = polygons[child_polygon_index];
 
@@ -612,6 +631,10 @@ void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_inde
     for (int i = 0; i < child_polygon.size(); ++i) {
         for (auto j = 0; j < parent_polygon.size(); ++j) {
             auto distance = glm::length(child_polygon[i] - parent_polygon[j]);
+            auto is_already_weld_point = parent_polygon_weld_points[j];
+            if(is_already_weld_point) {
+                distance *= 1000; // Dont diregard the point entirely, but make it less likely to be choosen.
+            }
             if (distance < best_distance) {
                 best_distance = distance;
                 parent_vertex = j;
@@ -624,6 +647,7 @@ void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_inde
         printf("ABORTING. Cant find best parent/child vertex for polygon combination\n");
         exit(-1);
     }
+    parent_polygon_weld_points[parent_vertex] = true;
     auto cv = child_polygon[child_vertex];
     std::rotate(child_polygon.begin(), child_polygon.begin() + child_vertex, child_polygon.end());
     child_polygon.push_back(cv);
@@ -637,6 +661,12 @@ void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_inde
 
     parent_polygon.insert(parent_polygon.begin() + parent_vertex + 1, child_polygon.begin(),
                           child_polygon.end());
+
+    std::vector<bool> new_points(child_polygon.size(), false);
+    parent_polygon_weld_points.insert(parent_polygon_weld_points.begin() + parent_vertex + 1, new_points.begin(), new_points.end());
+    parent_polygon_weld_points[parent_vertex + 1] = true;
+    parent_polygon_weld_points[parent_vertex + child_polygon.size()] = true;
+    parent_polygon_weld_points[parent_vertex + child_polygon.size() - 1] = true;
 }
 
 bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon) {
@@ -668,6 +698,7 @@ void create_mesh_from_polygon(
     for (auto &p: polygon) {
         polys3d.emplace_back(p.x, RT_FixedToFloating(sector->floorheight), p.y);
     }
+
     auto triangles = triangulate_polygon(polys3d, floor_texture);
 
     auto &sector_geometry = scene_data.sector_geometry[sector];
@@ -759,4 +790,106 @@ void RT_ChangeSideMidTexture(side_t *side, int texture_num) {
 void RT_ChangeSideBottomTexture(side_t *side, int texture_num) {
     detail::sidedef_to_wall_lookup[side].bottom->texture = get_device_texture(texture_num, *detail::wad,
                                                                               *detail::graphics_data);
+}
+
+void debug_polygon(Polygon &polygon, const std::string& name) {
+    constexpr size_t image_width = 1024;
+    constexpr size_t image_height = 1024;
+    auto image = FreeImage_Allocate(1024, 1024, 32);
+
+    for (int y = 0; y < image_height; ++y) {
+        for (int x = 0; x < image_width; ++x) {
+            RGBQUAD rgb;
+            rgb.rgbBlue = rgb.rgbGreen = rgb.rgbRed = rgb.rgbReserved = 255;
+
+            FreeImage_SetPixelColor(image, x, y, &rgb);
+        }
+    }
+
+    auto smallest = glm::vec2(FLT_MAX, FLT_MAX);
+    auto largest = glm::vec2(FLT_MIN, FLT_MIN);
+
+    for (auto vertex: polygon) {
+        smallest = glm::min(smallest, vertex);
+        largest = glm::max(largest, vertex);
+    }
+
+    smallest = smallest - glm::vec2(10.0, 10.0);
+    largest = largest + glm::vec2(10.0, 10.0);
+
+    auto polygon_size = largest - smallest;
+
+    auto get_slope = [](glm::vec2 &start, glm::vec2 &end) -> std::optional<float> {
+        if (start.x == end.x) {
+            return std::nullopt;
+        }
+
+        auto slope = (end.y - start.y) / (end.x - start.x);
+        if (glm::abs(slope) > 100000.0f) {
+            // slope is steep enough to handle as vertical
+            return std::nullopt;
+        }
+
+        return slope;
+    };
+
+    auto get_intercept = [](glm::vec2 &start, std::optional<float> &slope) -> float {
+        if (slope.has_value()) {
+            return start.y - slope.value() * start.x;
+        }
+        return start.x;
+    };
+
+    for (int i = 0; i < polygon.size(); ++i) {
+        auto next_index = (i + 1) % polygon.size();
+        auto from_vertex = polygon[i];
+        auto to_vertex = polygon[next_index];
+
+        auto start = glm::vec2(
+                ((from_vertex.x - smallest.x) / polygon_size.x) * (image_width - 1.0),
+                ((from_vertex.y - smallest.y) / polygon_size.y) * (image_height - 1.0)
+        );
+
+        auto end = glm::vec2(
+                ((to_vertex.x - smallest.x) / polygon_size.x) * (image_width - 1.0),
+                ((to_vertex.y - smallest.y) / polygon_size.y) * (image_height - 1.0)
+        );
+
+        auto slope = get_slope(start, end);
+        auto intercept = get_intercept(start, slope);
+
+        auto previous_distance = FLT_MAX;
+
+        auto current_pos = glm::vec2(start.x, start.y);
+
+        while(glm::length(current_pos - end) < previous_distance) {
+            previous_distance = glm::length(current_pos - end);
+
+            auto base_increment = 0.1f;
+            if(slope.has_value()) {
+                auto step_increment = start.x > end.x ? -base_increment : base_increment;
+                auto diff = end.x - start.x;
+                if(glm::abs(diff) < glm::abs(step_increment)) {
+                    step_increment = diff;
+                }
+                current_pos.x += step_increment;
+                current_pos.y = slope.value() * current_pos.x + intercept;
+            }
+            else {
+                auto step_increment = start.y > end.y ?  -base_increment :  base_increment ;
+                auto diff = end.y - start.y;
+                if (glm::abs(diff) < glm::abs(step_increment)) {
+                    step_increment = diff;
+                }
+                current_pos.y += step_increment;
+            }
+
+            RGBQUAD rgb;
+            rgb.rgbRed = rgb.rgbGreen = rgb.rgbBlue = 0;
+            rgb.rgbReserved = 255;
+            FreeImage_SetPixelColor(image, (int)current_pos.x, (int)current_pos.y, &rgb);
+        }
+    }
+
+    FreeImage_Save(FIF_PNG, image, fmt::format("/home/emil/doom_wads/sectors/polygon_{}.png", name).c_str());
 }
