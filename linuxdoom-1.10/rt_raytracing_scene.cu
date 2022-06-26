@@ -46,6 +46,17 @@ private:
 
 };
 
+struct Side {
+    Square *top;
+    Square *middle;
+    Square *lower;
+};
+
+namespace detail {
+    TextureCache texture_cache;
+    std::unordered_map<side_t *, Side> sidedef_to_wall_lookup;
+}
+
 struct SceneData {
     std::vector<Square *> walls;
     std::vector<Triangle *> triangles;
@@ -72,7 +83,6 @@ bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon);
 
 void create_mesh_from_polygon(
         sector_t *sector,
-        TextureCache &texture_cache,
         SceneData &scene_data,
         std::vector<glm::vec2> &polygon,
         bool is_moving_sector,
@@ -80,27 +90,23 @@ void create_mesh_from_polygon(
 
 DeviceTexture *get_device_texture(short texture_number,
                                   wad::Wad &wad,
-                                  wad::GraphicsData &graphics_data,
-                                  TextureCache &texture_cache);
+                                  wad::GraphicsData &graphics_data);
 
-DeviceTexture *get_device_texture_from_flat(short flatnum, TextureCache &texture_cache);
+DeviceTexture *get_device_texture_from_flat(short flatnum);
 
 DeviceTexture *create_device_texture_from_flat(intptr_t lump_number);
 
 Square *create_sector_adjacent_wall(short texture_number,
                                     wad::Wad &wad, wad::GraphicsData &graphics_data,
-                                    TextureCache &texture_cache,
                                     int front_sector_height, int back_sector_height,
                                     vertex_t *start_vertex,
                                     vertex_t *end_vertex);
 
 Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData &graphics_data,
-                         TextureCache &texture_cache,
-                         int floor_height, int ceiling_height, vertex_t *start_vertex, vertex_t *end_vertex, int line_flags);
+                         int floor_height, int ceiling_height, vertex_t *start_vertex, vertex_t *end_vertex,
+                         int line_flags);
 
 BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) {
-
-    TextureCache texture_cache;
     SceneData scene_data;
 
     std::set<sector_t *> moving_sectors;
@@ -256,7 +262,6 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
 
             create_mesh_from_polygon(
                     sector_ptr,
-                    texture_cache,
                     scene_data,
                     polygons[i],
                     moving_sectors.find(sector_ptr) != moving_sectors.end(),
@@ -284,7 +289,6 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                     left_side->toptexture,
                     wad,
                     graphics_data,
-                    texture_cache,
                     left_sector->ceilingheight,
                     right_sector->ceilingheight,
                     start_vertex,
@@ -305,13 +309,13 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
 
 
                 scene_data.walls.push_back(left_upper_wall);
+                detail::sidedef_to_wall_lookup[left_side].top = left_upper_wall;
             }
 
             auto right_upper_wall = create_sector_adjacent_wall(
                     right_side->toptexture,
                     wad,
                     graphics_data,
-                    texture_cache,
                     left_sector->ceilingheight,
                     right_sector->ceilingheight,
                     start_vertex,
@@ -332,13 +336,13 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                 }
 
                 scene_data.walls.push_back(right_upper_wall);
+                detail::sidedef_to_wall_lookup[right_side].top = right_upper_wall;
             }
 
             auto left_lower_wall = create_sector_adjacent_wall(
                     left_side->bottomtexture,
                     wad,
                     graphics_data,
-                    texture_cache,
                     left_sector->floorheight,
                     right_sector->floorheight,
                     start_vertex,
@@ -358,12 +362,13 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                                                                                                  left_sector->floorheight)});
                 }
                 scene_data.walls.push_back(left_lower_wall);
+                detail::sidedef_to_wall_lookup[left_side].lower = left_lower_wall;
             }
+
             auto right_lower_wall = create_sector_adjacent_wall(
                     right_side->bottomtexture,
                     wad,
                     graphics_data,
-                    texture_cache,
                     left_sector->floorheight,
                     right_sector->floorheight,
                     start_vertex,
@@ -383,6 +388,7 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                                                                                                  left_sector->floorheight)});
                 }
                 scene_data.walls.push_back(right_lower_wall);
+                detail::sidedef_to_wall_lookup[right_side].lower = right_lower_wall;
             }
 
         }
@@ -396,7 +402,6 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                     side->midtexture,
                     wad,
                     graphics_data,
-                    texture_cache,
                     sector->floorheight,
                     sector->ceilingheight,
                     start_vertex,
@@ -406,13 +411,10 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
             if (wall) {
                 //if (line.special_type == 117) { // Vertical door
                 if (moving_sectors.find(side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[side->sector].middle_walls.push_back( wall);
+                    scene_data.movable_sector[side->sector].middle_walls.push_back(wall);
                 }
                 scene_data.walls.push_back(wall);
-            }
-
-            if (wall) {
-                scene_data.walls.push_back(wall);
+                detail::sidedef_to_wall_lookup[side].middle = wall;
             }
         }
 
@@ -424,7 +426,6 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                     side->midtexture,
                     wad,
                     graphics_data,
-                    texture_cache,
                     sector->floorheight,
                     sector->ceilingheight,
                     start_vertex,
@@ -434,18 +435,15 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
             if (wall) {
                 //if (line.special_type == 117) { // Vertical door
                 if (moving_sectors.find(side->sector) != moving_sectors.end()) {
-                    scene_data.movable_sector[side->sector].middle_walls.push_back( wall);
+                    scene_data.movable_sector[side->sector].middle_walls.push_back(wall);
                 }
                 scene_data.walls.push_back(wall);
-            }
-
-            if (wall) {
-                scene_data.walls.push_back(wall);
+                detail::sidedef_to_wall_lookup[side].middle = wall;
             }
         }
     }
 
-    auto sky_texture = get_device_texture(skytexture, wad, graphics_data, texture_cache);
+    auto sky_texture = get_device_texture(skytexture, wad, graphics_data);
 
     return BuildSceneResult{
             create_device_type<Scene>(scene_data.walls, scene_data.triangles, scene_data.entities, sky_texture),
@@ -454,8 +452,8 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
 }
 
 Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData &graphics_data,
-                         TextureCache &texture_cache,
-                         int floor_height, int ceiling_height, vertex_t *start_vertex, vertex_t *end_vertex, int line_flags) {
+                         int floor_height, int ceiling_height, vertex_t *start_vertex, vertex_t *end_vertex,
+                         int line_flags) {
     if (texture_number == 0) {
         return nullptr;
     }
@@ -472,7 +470,7 @@ Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData 
     auto bottom_right = glm::vec3(end_x, RT_FixedToFloating(floor_height), end_y);
     auto top_right = glm::vec3(end_x, RT_FixedToFloating(ceiling_height), end_y);
 
-    auto texture = get_device_texture(texture_number, wad, graphics_data, texture_cache);
+    auto texture = get_device_texture(texture_number, wad, graphics_data);
 
     auto horizontal_len = glm::length(top_right - top_left);
     auto vertical_len = glm::length(bottom_left - top_left);
@@ -482,7 +480,7 @@ Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData 
 
     auto square = create_device_type<Square>(top_left, top_right - top_left, bottom_left - top_left, uv_scale, texture);
 
-    if(line_flags & ML_DONTPEGBOTTOM) {
+    if (line_flags & ML_DONTPEGBOTTOM) {
         square->uv_offset = texture->height() - vertical_len;
     }
 
@@ -491,7 +489,6 @@ Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData 
 
 Square *create_sector_adjacent_wall(short texture_number,
                                     wad::Wad &wad, wad::GraphicsData &graphics_data,
-                                    TextureCache &texture_cache,
                                     int front_sector_height, int back_sector_height,
                                     vertex_t *start_vertex,
                                     vertex_t *end_vertex) {
@@ -520,7 +517,7 @@ Square *create_sector_adjacent_wall(short texture_number,
     auto bottom_right = glm::vec3(end_x, lower_height, end_y);
     auto top_right = glm::vec3(end_x, higher_height, end_y);
 
-    auto texture = get_device_texture(texture_number, wad, graphics_data, texture_cache);
+    auto texture = get_device_texture(texture_number, wad, graphics_data);
 
     auto horizontal_len = glm::length(top_right - top_left);
     auto vertical_len = glm::length(bottom_left - top_left);
@@ -693,7 +690,6 @@ bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon) {
 
 void create_mesh_from_polygon(
         sector_t *sector,
-        TextureCache &texture_cache,
         SceneData &scene_data,
         std::vector<glm::vec2> &polygon,
         bool is_moving_sector,
@@ -706,7 +702,7 @@ void create_mesh_from_polygon(
         std::reverse(polygon.begin(), polygon.end());
     }
 
-    auto floor_texture = get_device_texture_from_flat(sector->floorpic, texture_cache);
+    auto floor_texture = get_device_texture_from_flat(sector->floorpic);
     /*auto floor_texture = get_device_texture(sector.floor_texture, wad, graphics_data,
                                             scene_data.device_textures, device_texture_lookup, true);*/
 
@@ -726,7 +722,7 @@ void create_mesh_from_polygon(
     scene_data.triangles.insert(scene_data.triangles.end(), triangles.begin(), triangles.end());
 
     if (sector->ceilingpic != skyflatnum) {//sector.ceiling_texture != "F_SKY1") {
-        auto ceiling_texture = get_device_texture_from_flat(sector->ceilingpic, texture_cache);
+        auto ceiling_texture = get_device_texture_from_flat(sector->ceilingpic);
         /*auto ceiling_texture = get_device_texture(sector.ceiling_texture, wad, graphics_data,
                                                   scene_data.device_textures, device_texture_lookup,
                                                   true);*/
@@ -752,9 +748,8 @@ void create_mesh_from_polygon(
 
 DeviceTexture *get_device_texture(short texture_number,
                                   wad::Wad &wad,
-                                  wad::GraphicsData &graphics_data,
-                                  TextureCache &texture_cache) {
-    auto texture = texture_cache.get_texture(texture_number);
+                                  wad::GraphicsData &graphics_data) {
+    auto texture = detail::texture_cache.get_texture(texture_number);
     if (texture) {
         return texture;
     }
@@ -766,19 +761,19 @@ DeviceTexture *get_device_texture(short texture_number,
     auto pixels = tex.get_pixels(wad, graphics_data.patch_names());
     texture = create_device_type<DeviceTexture>(pixels, tex.width(), tex.height());
 
-    texture_cache.insert_texture(texture_number, texture);
+    detail::texture_cache.insert_texture(texture_number, texture);
 
     return texture;
 }
 
-DeviceTexture *get_device_texture_from_flat(short flatnum, TextureCache &texture_cache) {
-    auto texture = texture_cache.get_texture_for_flat(flatnum);
+DeviceTexture *get_device_texture_from_flat(short flatnum) {
+    auto texture = detail::texture_cache.get_texture_for_flat(flatnum);
     if (texture) {
         return texture;
     }
 
     texture = create_device_texture_from_flat(firstflat + flatnum);
-    texture_cache.insert_flat_texture(flatnum, texture);
+    detail::texture_cache.insert_flat_texture(flatnum, texture);
 
     return texture;
 }
@@ -803,4 +798,19 @@ DeviceTexture *create_device_texture_from_map_texture(wad::Wad &wad, const wad::
     std::cout << "creating texture " << texture.name() << std::endl;
     return create_device_type<DeviceTexture>(pixels, texture.width(),
                                              texture.height());
+}
+
+void RT_ChangeSideTopTexture(side_t *side, int texture_num) {
+    detail::sidedef_to_wall_lookup[side].top->texture = get_device_texture(texture_num, *detail::wad,
+                                                                           *detail::graphics_data);
+}
+
+void RT_ChangeSideMidTexture(side_t *side, int texture_num) {
+    detail::sidedef_to_wall_lookup[side].middle->texture = get_device_texture(texture_num, *detail::wad,
+                                                                              *detail::graphics_data);
+}
+
+void RT_ChangeSideBottomTexture(side_t *side, int texture_num) {
+    detail::sidedef_to_wall_lookup[side].lower->texture = get_device_texture(texture_num, *detail::wad,
+                                                                             *detail::graphics_data);
 }

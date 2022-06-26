@@ -49,7 +49,6 @@ void RT_SectorCeilingHeightChanged(sector_t *sector);
 
 void RT_SectorFloorHeightChanged(sector_t *sector);
 
-
 inline float RT_FixedToFloating(int value) {
     return static_cast<float>(value) / 65536.0f;
 }

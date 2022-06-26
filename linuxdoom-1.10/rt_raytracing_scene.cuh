@@ -5,10 +5,10 @@
 #include <unordered_map>
 #include <vector>
 #include "r_defs.h"
-#include "renderer/square.cuh"
-#include "renderer/triangle.cuh"
 
 class Scene;
+class Square;
+class Triangle;
 namespace device {
 
 }
@@ -37,5 +37,11 @@ struct BuildSceneResult {
 };
 
 BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data);
+
+void RT_ChangeSideTopTexture(side_t *side, int texture_num);
+
+void RT_ChangeSideMidTexture(side_t *side, int texture_num);
+
+void RT_ChangeSideBottomTexture(side_t *side, int texture_num);
 
 #endif
