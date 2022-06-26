@@ -269,7 +269,7 @@ intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle *> *node, 
                 intersection.world_normal = glm::vec3{0.0f, -1.0f, 0.0f};
             } else {
                 // Going downwards, must have hit floor
-                intersection.world_normal = glm::vec3{0.0f, -1.0f, 0.0f};
+                intersection.world_normal = glm::vec3{0.0f, 1.0f, 0.0f};
             }
             success = true;
         }
