@@ -18,7 +18,7 @@ public:
     // TODO: Temporarily making this __host__. Not needed, remove later
     [[nodiscard]] __device__ __host__ const glm::vec3& direction() const { return m_direction; }
     [[nodiscard]] __device__ const glm::vec3& inverse_direction() const { return m_inverse_direction; }
-    [[nodiscard]] __device__ const float refractive_index() const { return m_refractive_index; }
+    [[nodiscard]] __device__ float refractive_index() const { return m_refractive_index; }
 protected:
     glm::vec3 m_origin;
     glm::vec3 m_direction;

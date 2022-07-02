@@ -131,7 +131,3 @@ TEST_CASE("Polygon combination", "[polygon]") {
         REQUIRE(polygon[2] == glm::vec2{90, 10});
     }
 }
-
-TEST_CASE("Polygon winding order assertion", "[polygon]") {
-    Polygon p_clockwise(std::vector<glm::vec2>{{0, 0}, {10, 0}, {0, -10}});
-}
