@@ -1,4 +1,4 @@
-target_sources(doom PRIVATE
+target_sources(doom_lib PRIVATE
         graphics_data.cu
         graphics_data.cuh
         lump_reader.cuh

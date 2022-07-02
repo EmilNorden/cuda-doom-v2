@@ -1,4 +1,4 @@
-target_sources(doom PRIVATE
+target_sources(doom_lib PRIVATE
         common.cpp
         common.h
         GLSLProgram.cpp

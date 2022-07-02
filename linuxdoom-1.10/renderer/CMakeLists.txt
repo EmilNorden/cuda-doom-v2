@@ -1,4 +1,4 @@
-target_sources(doom PRIVATE
+target_sources(doom_lib PRIVATE
         aabb.cuh
         autofocus.cu
         autofocus.cuh

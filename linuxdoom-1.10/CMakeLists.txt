@@ -6,7 +6,7 @@ if (UNIX AND NOT APPLE)
     add_definitions(-DLINUX)
 endif ()
 
-add_executable(doom
+add_library(doom_lib
         am_map.cpp
         am_map.h
         custom_mix_pitch.cpp
@@ -43,7 +43,6 @@ add_executable(doom
         hu_lib.h
         hu_stuff.cpp
         hu_stuff.h
-        i_main.cpp
         i_net.cpp
         i_net.h
         i_sound.cpp
@@ -151,6 +150,13 @@ add_executable(doom
         z_zone.cpp
         z_zone.h opengl/common.h opengl/common.cpp)
 
+add_executable(doom
+        i_main.cpp)
+
+target_link_libraries(doom
+        doom_lib)
+
+set_target_properties(doom_lib PROPERTIES CUDA_ARCHITECTURES "86")
 set_target_properties(doom PROPERTIES CUDA_ARCHITECTURES "86")
 # target_compile_options(doom PUBLIC -m32 -I/usr/local/opt/gcc/include)
 # target_link_options(doom PUBLIC -m32 -L/usr/local/opt/gcc/lib/gcc/9)
@@ -168,7 +174,7 @@ find_package(SDL2 REQUIRED)
 find_package(SDL2_mixer REQUIRED)
 find_package(fmt REQUIRED)
 
-target_link_libraries(doom
+target_link_libraries(doom_lib
         m
         ${GLEW_LIBRARIES}
         ${OPENGL_LIBRARIES}
@@ -177,7 +183,7 @@ target_link_libraries(doom
         ${SDL2_MIXER_LIBRARIES}
         fmt::fmt)
 
-target_include_directories(doom SYSTEM PRIVATE
+target_include_directories(doom_lib SYSTEM PRIVATE
         ${GLEW_INCLUDE_DIRS}
         ${OPENGL_INCLUDE_DIR}
         ${FREEIMAGE_INCLUDE_DIRS}
@@ -185,11 +191,11 @@ target_include_directories(doom SYSTEM PRIVATE
         ${SDL2_MIXER_INCLUDE_DIRS})
 
 set_target_properties(
-        doom
+        doom_lib
         PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON)
 
-target_compile_options(doom PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
+target_compile_options(doom_lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
         --generate-line-info
         --use_fast_math
         --relocatable-device-code=true
@@ -197,6 +203,6 @@ target_compile_options(doom PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
         -code=sm_86
         >)
 
-target_compile_options(doom PRIVATE $<$<CONFIG:DEBUG>:
+target_compile_options(doom_lib PRIVATE $<$<CONFIG:DEBUG>:
         -g
         >)
