@@ -277,7 +277,7 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
         auto start_vertex = line_ptr->v1;
         auto end_vertex = line_ptr->v2;
 
-        if(i == 247) {
+        if(i == 220) {
             int ppp = 43;
         }
 
@@ -488,6 +488,7 @@ Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData 
     if (line_flags & ML_DONTPEGBOTTOM) {
         square->uv_offset = texture->height() - vertical_len;
         square->texture_wrapping = false;
+        square->lower_unpegged = true;
     }
 
     return square;

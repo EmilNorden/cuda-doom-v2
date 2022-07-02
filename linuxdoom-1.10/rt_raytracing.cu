@@ -300,6 +300,10 @@ void RT_VerticalDoorChanged(sector_t *sector) {
         wall->vertical_len = door_total_height;
         wall->vertical_vec = {0.0f, -1.0f, 0.0f};
         wall->uv_scale.y = (wall->vertical_len / wall->texture->height()) / wall->vertical_len;
+        if(wall->lower_unpegged) {
+            wall->uv_offset = wall->texture->height() - door_total_height;
+        }
+
     }
 
     for(auto ceiling : movable_sector.ceiling) {
