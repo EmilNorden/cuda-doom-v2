@@ -29,12 +29,15 @@ Winding calculate_polygon_winding(const std::vector<glm::vec2> &polygon) {
 }
 
 Polygon::Polygon(std::vector<glm::vec2> vertices)
-        : m_vertices(std::move(vertices)), m_winding(calculate_polygon_winding(m_vertices)) {
+        : m_vertices(std::move(vertices))
+        , m_weld_points(m_vertices.size(), false)
+        , m_winding(calculate_polygon_winding(m_vertices)) {
 
 }
 
 void Polygon::flip_winding() {
     std::reverse(m_vertices.begin(), m_vertices.end());
+    std::reverse(m_weld_points.begin(), m_weld_points.end());
 
     if (m_winding == Winding::CounterClockwise) {
         m_winding = Winding::Clockwise;
@@ -83,8 +86,7 @@ bool Polygon::intersects_polygon(const Polygon &other) const {
     });
 }
 
-void Polygon::combine_with(const Polygon &other,
-                           std::vector<bool> &weld_points) { // TODO: Add weld_points as a field of Polygon
+void Polygon::combine_with(const Polygon &other) { // TODO: Add weld_points as a field of Polygon
     auto found_vertex_pair = false;
     int parent_vertex = -1;
     int child_vertex = -1;
@@ -92,7 +94,7 @@ void Polygon::combine_with(const Polygon &other,
     for (int i = 0; i < other.size(); ++i) {
         for (auto j = 0; j < size(); ++j) {
             auto distance = glm::length(other[i] - m_vertices[j]);
-            auto is_already_weld_point = weld_points[j];
+            auto is_already_weld_point = m_weld_points[j];
             if (is_already_weld_point) {
                 distance *= 1000; // Dont diregard the point entirely, but make it less likely to be choosen.
             }
@@ -109,7 +111,7 @@ void Polygon::combine_with(const Polygon &other,
         exit(-1);
     }
 
-    weld_points[parent_vertex] = true;
+    m_weld_points[parent_vertex] = true;
     auto cv = other[child_vertex];
 
     std::vector<glm::vec2> child_vertices(other.vertices().begin(), other.vertices().end());
@@ -122,10 +124,10 @@ void Polygon::combine_with(const Polygon &other,
                       child_vertices.end());
 
     std::vector<bool> new_points(child_vertices.size(), false);
-    weld_points.insert(weld_points.begin() + parent_vertex + 1, new_points.begin(), new_points.end());
-    weld_points[parent_vertex + 1] = true;
-    weld_points[parent_vertex + child_vertices.size()] = true;
-    weld_points[parent_vertex + child_vertices.size() - 1] = true;
+    m_weld_points.insert(m_weld_points.begin() + parent_vertex + 1, new_points.begin(), new_points.end());
+    m_weld_points[parent_vertex + 1] = true;
+    m_weld_points[parent_vertex + child_vertices.size()] = true;
+    m_weld_points[parent_vertex + child_vertices.size() - 1] = true;
 }
 
 void Polygon::assert_winding(Winding winding) {

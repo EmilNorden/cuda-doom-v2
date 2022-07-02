@@ -81,7 +81,7 @@ bool is_point_inside_polygon(const Polygon &container, const glm::vec2 &point);
 
 bool is_polygon_inside_other(const Polygon &container, const Polygon &test_polygon);
 
-void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_index, size_t child_polygon_index, std::vector<bool>& parent_polygon_weld_points);
+void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_index, size_t child_polygon_index);
 
 bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon);
 
@@ -217,11 +217,6 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
         };
 
         std::vector<bool> polygon_is_pruned(polygons.size(), false);
-        std::vector<std::vector<bool>> polygon_vertices_weld_points;
-        polygon_vertices_weld_points.resize(polygons.size());
-        for(int i = 0; i < polygons.size(); ++i) {
-            polygon_vertices_weld_points[i] = std::vector<bool>(polygons[i].size(), false);
-        }
 
         // FLATTEN PARENT-CHILDS INTO SINGLE POLYGONS
         while (true) {
@@ -238,7 +233,7 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                         if(sector_number == 88) {
                             auto foo = 334;
                         }
-                        combine_polygons(polygons, i, it->second, polygon_vertices_weld_points[i]);
+                        combine_polygons(polygons, i, it->second);
                         if(sector_number == 88) {
                             debug_polygon(polygons[i], fmt::format("combine_{}_{}_{}", sector_number, i, it->second));
                         }
@@ -534,14 +529,14 @@ Square *create_sector_adjacent_wall(short texture_number,
                                       texture);
 }
 
-void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_index, size_t child_polygon_index, std::vector<bool>& parent_polygon_weld_points) {
+void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_index, size_t child_polygon_index) {
     auto &parent_polygon = polygons[parent_polygon_index];
     auto &child_polygon = polygons[child_polygon_index];
 
     parent_polygon.assert_winding(Winding::Clockwise);
     child_polygon.assert_winding(Winding::CounterClockwise);
 
-    parent_polygon.combine_with(child_polygon, parent_polygon_weld_points);
+    parent_polygon.combine_with(child_polygon);
 }
 
 bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon) {

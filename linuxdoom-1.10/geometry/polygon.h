@@ -22,7 +22,7 @@ public:
 
     [[nodiscard]] bool intersects_polygon(const Polygon& other) const;
 
-    void combine_with(const Polygon& other, std::vector<bool> &weld_points);
+    void combine_with(const Polygon& other);
 
     void assert_winding(Winding winding);
 
@@ -34,6 +34,7 @@ public:
 
 private:
     std::vector<glm::vec2> m_vertices;
+    std::vector<bool> m_weld_points; // To keep track of vertices that has been used when "welding"/combining polygons
     Winding m_winding;
 };
 
