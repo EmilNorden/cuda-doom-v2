@@ -5,3 +5,4 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 
 add_subdirectory(linuxdoom-1.10)
+add_subdirectory(test)

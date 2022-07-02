@@ -89,7 +89,6 @@ namespace geometry {
     }
 
     void Polygon::combine_with(const Polygon &other) { // TODO: Add weld_points as a field of Polygon
-        auto found_vertex_pair = false;
         int parent_vertex = -1;
         int child_vertex = -1;
         float best_distance = FLT_MAX;
@@ -98,7 +97,7 @@ namespace geometry {
                 auto distance = glm::length(other[i] - m_vertices[j]);
                 auto is_already_weld_point = m_weld_points[j];
                 if (is_already_weld_point) {
-                    distance *= 1000; // Dont diregard the point entirely, but make it less likely to be choosen.
+                    distance *= 1000; // Dont disregard the point entirely, but make it less likely to be chosen.
                 }
                 if (distance < best_distance) {
                     best_distance = distance;

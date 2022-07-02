@@ -66,11 +66,11 @@ namespace geometry {
                 Triangle triangle(v0, v1, v2);
 
                 if (triangle.area() == 0.0f) {
-                    // Area is 0. All vertices must be colinear.
+                    // Area is 0. All vertices must be collinear.
                     continue;
                 }
 
-                if (triangle.winding() == Winding::Clockwise) {
+                if (triangle.winding() == Winding::CounterClockwise) {
                     // Assuming CCW  winding, the point should be on the right side.
                     // Move on to the next vertex in the polygon
                     continue;
@@ -104,30 +104,5 @@ namespace geometry {
         }
 
         return triangles;
-    }
-
-    float triangle_area_2d(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3) {
-        return (v1.x * (v3.y - v2.y)) + (v2.x * (v1.y - v3.y)) + (v3.x * (v2.y - v1.y));
-    }
-
-    bool is_triangle_cw_winding(const glm::vec2 &v0, const glm::vec2 &v1, const glm::vec2 &v2) {
-        return is_point_on_left_side_of_line(v0, v2, v1);
-    }
-
-    /* Taken from https://stackoverflow.com/questions/2049582/how-to-determine-if-a-point-is-in-a-2d-triangle*/
-    bool
-    is_point_in_triangle_2d(const glm::vec2 &point, const glm::vec2 &v0, const glm::vec2 &v1, const glm::vec2 &v2) {
-        auto sign = [](const glm::vec2 &v0, const glm::vec2 &v1, const glm::vec2 &v2) {
-            return (v0.x - v2.x) * (v1.y - v2.y) - (v1.x - v2.x) * (v0.y - v2.y);
-        };
-
-        auto d1 = sign(point, v0, v1);
-        auto d2 = sign(point, v1, v2);
-        auto d3 = sign(point, v2, v0);
-
-        auto has_neg = (d1 < 0.0) || (d2 < 0.0) || (d3 < 0.0);
-        auto has_pos = (d1 > 0.0) || (d2 > 0.0) || (d3 > 0.0);
-
-        return !(has_neg && has_pos);
     }
 }
