@@ -151,7 +151,7 @@ add_library(doom_lib
         z_zone.h opengl/common.h opengl/common.cpp)
 
 add_executable(doom
-        i_main.cpp)
+        i_main.cpp geometry/polygon.cpp geometry/polygon.h)
 
 target_link_libraries(doom
         doom_lib)

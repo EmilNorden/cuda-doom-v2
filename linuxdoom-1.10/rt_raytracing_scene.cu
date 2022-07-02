@@ -9,6 +9,7 @@
 #include "doomstat.h"
 #include "r_sky.h"
 #include "rt_raytracing_scene.cuh"
+#include "geometry/polygon.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <algorithm>
@@ -68,8 +69,6 @@ struct SceneData {
     std::unordered_map<sector_t *, SectorGeometry> sector_geometry;
 };
 
-typedef std::vector<glm::vec2> Polygon;
-
 void debug_polygon(Polygon &polygon, const std::string& name);
 
 bool on_segment(glm::vec2 p, glm::vec2 q, glm::vec2 r);
@@ -89,7 +88,7 @@ bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon);
 void create_mesh_from_polygon(
         sector_t *sector,
         SceneData &scene_data,
-        std::vector<glm::vec2> &polygon);
+        Polygon &polygon);
 
 DeviceTexture *get_device_texture(short texture_number,
                                   wad::Wad &wad,
@@ -167,11 +166,11 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                 all_lines.erase(foo);
             }
 
-            Polygon polygon;
+            std::vector<glm::vec2> vertices;
             for (auto &line: sorted_lines) {
-                polygon.emplace_back(glm::vec2{RT_FixedToFloating(line.v1->x), RT_FixedToFloating(line.v1->y)});
+                vertices.emplace_back(glm::vec2{RT_FixedToFloating(line.v1->x), RT_FixedToFloating(line.v1->y)});
             }
-            polygons.push_back(polygon);
+            polygons.emplace_back(vertices);
         }
 
         // BUILD A MAP OF PARENT-CHILD RELATIONSHIPS
@@ -184,7 +183,8 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
                     continue;
                 }
 
-                if (is_polygon_inside_other(current_polygon, polygons[j])) {
+                // if (is_polygon_inside_other(current_polygon, polygons[j])) {
+                if(current_polygon.intersects_polygon(polygons[j])) {
                     // 'i' is the parent of 'j'
                     parent_map.insert({i, j});
                 }
@@ -534,158 +534,14 @@ Square *create_sector_adjacent_wall(short texture_number,
                                       texture);
 }
 
-// Given three collinear points p, q, r, the function checks if
-// point q lies on line segment 'pr'
-bool on_segment(glm::vec2 p, glm::vec2 q, glm::vec2 r) {
-    if (q.x <= glm::max(p.x, r.x) && q.x >= glm::min(p.x, r.x) &&
-        q.y <= glm::max(p.y, r.y) && q.y >= glm::min(p.y, r.y))
-        return true;
-
-    return false;
-}
-
-// To find orientation of ordered triplet (p, q, r).
-// The function returns following values
-// 0 --> p, q and r are collinear
-// 1 --> Clockwise
-// 2 --> Counterclockwise
-int orientation(glm::vec2 p, glm::vec2 q, glm::vec2 r) {
-    // See https://www.geeksforgeeks.org/orientation-3-ordered-points/
-    // for details of below formula.
-    int val = (q.y - p.y) * (r.x - q.x) -
-              (q.x - p.x) * (r.y - q.y);
-
-    if (val == 0) return 0;  // collinear
-
-    return (val > 0) ? 1 : 2; // clock or counterclock wise
-}
-
-// The main function that returns true if line segment 'p1q1'
-// and 'p2q2' intersect.
-bool lines_intersect(glm::vec2 p1, glm::vec2 q1, glm::vec2 p2, glm::vec2 q2) {
-    // Find the four orientations needed for general and
-    // special cases
-    int o1 = orientation(p1, q1, p2);
-    int o2 = orientation(p1, q1, q2);
-    int o3 = orientation(p2, q2, p1);
-    int o4 = orientation(p2, q2, q1);
-
-    // General case
-    if (o1 != o2 && o3 != o4)
-        return true;
-
-    // Special Cases
-    // p1, q1 and p2 are collinear and p2 lies on segment p1q1
-    if (o1 == 0 && on_segment(p1, p2, q1)) return true;
-
-    // p1, q1 and q2 are collinear and q2 lies on segment p1q1
-    if (o2 == 0 && on_segment(p1, q2, q1)) return true;
-
-    // p2, q2 and p1 are collinear and p1 lies on segment p2q2
-    if (o3 == 0 && on_segment(p2, p1, q2)) return true;
-
-    // p2, q2 and q1 are collinear and q1 lies on segment p2q2
-    if (o4 == 0 && on_segment(p2, q1, q2)) return true;
-
-    return false; // Doesn't fall in any of the above cases
-}
-
-bool is_point_inside_polygon(const Polygon &container, const glm::vec2 &point) {
-    // Test all edges of the (possibly) containing polygon against an arbitrary line starting from the given point
-    // NOTE: I am doing the check twice, with two different "abritrary lines". This is to avoid false positives when the lines become collinear with lines in the polygon.
-    auto end_point1 = point + glm::vec2{0, -2000};
-    auto end_point2 = point + glm::vec2{0, 2000};
-
-    int intersections1 = 0;
-    int intersections2 = 0;
-    for (int i = 0; i < container.size(); ++i) {
-        auto j = (i == container.size() - 1) ? 0 : i + 1;
-
-        auto edge_start = container[i];
-        auto edge_end = container[j];
-
-        if (lines_intersect(point, end_point1, edge_start, edge_end)) {
-            intersections1++;
-        }
-
-        if (lines_intersect(point, end_point2, edge_start, edge_end)) {
-            intersections2++;
-        }
-    }
-
-    return (intersections1 & 1) > 0 && (intersections2 & 1) > 0;
-}
-
-bool is_polygon_inside_other(const Polygon &container, const Polygon &test_polygon) {
-
-    for (auto &p: test_polygon) {
-        if (is_point_inside_polygon(container, p)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 void combine_polygons(std::vector<Polygon> &polygons, size_t parent_polygon_index, size_t child_polygon_index, std::vector<bool>& parent_polygon_weld_points) {
     auto &parent_polygon = polygons[parent_polygon_index];
     auto &child_polygon = polygons[child_polygon_index];
 
-    auto is_parent_cw = is_polygon_cw_winding(parent_polygon);
+    parent_polygon.assert_winding(Winding::Clockwise);
+    child_polygon.assert_winding(Winding::CounterClockwise);
 
-    auto is_child_cw = is_polygon_cw_winding(child_polygon);
-
-    if (!is_parent_cw) {
-        std::reverse(parent_polygon.begin(), parent_polygon.end());
-    }
-
-    if (is_child_cw) {
-        std::reverse(child_polygon.begin(), child_polygon.end());
-    }
-
-    auto found_vertex_pair = false;
-    int parent_vertex = -1;
-    int child_vertex = -1;
-    float best_distance = FLT_MAX;
-    for (int i = 0; i < child_polygon.size(); ++i) {
-        for (auto j = 0; j < parent_polygon.size(); ++j) {
-            auto distance = glm::length(child_polygon[i] - parent_polygon[j]);
-            auto is_already_weld_point = parent_polygon_weld_points[j];
-            if(is_already_weld_point) {
-                distance *= 1000; // Dont diregard the point entirely, but make it less likely to be choosen.
-            }
-            if (distance < best_distance) {
-                best_distance = distance;
-                parent_vertex = j;
-                child_vertex = i;
-            }
-        }
-    }
-
-    if (parent_vertex == -1) {
-        printf("ABORTING. Cant find best parent/child vertex for polygon combination\n");
-        exit(-1);
-    }
-    parent_polygon_weld_points[parent_vertex] = true;
-    auto cv = child_polygon[child_vertex];
-    std::rotate(child_polygon.begin(), child_polygon.begin() + child_vertex, child_polygon.end());
-    child_polygon.push_back(cv);
-    child_polygon.push_back(parent_polygon[parent_vertex]);
-    //auto first_in_child = child_polygon[child_vertex];
-
-    //child_polygon.insert(child_polygon.begin() + child_vertex, first_in_child);
-    //child_polygon.insert(child_polygon.begin() + child_vertex, parent_polygon[parent_vertex]);
-    //child_polygon.push_back(first_in_child);
-    //
-
-    parent_polygon.insert(parent_polygon.begin() + parent_vertex + 1, child_polygon.begin(),
-                          child_polygon.end());
-
-    std::vector<bool> new_points(child_polygon.size(), false);
-    parent_polygon_weld_points.insert(parent_polygon_weld_points.begin() + parent_vertex + 1, new_points.begin(), new_points.end());
-    parent_polygon_weld_points[parent_vertex + 1] = true;
-    parent_polygon_weld_points[parent_vertex + child_polygon.size()] = true;
-    parent_polygon_weld_points[parent_vertex + child_polygon.size() - 1] = true;
+    parent_polygon.combine_with(child_polygon, parent_polygon_weld_points);
 }
 
 bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon) {
@@ -706,15 +562,15 @@ bool is_polygon_cw_winding(const std::vector<glm::vec2> &polygon) {
 void create_mesh_from_polygon(
         sector_t *sector,
         SceneData &scene_data,
-        std::vector<glm::vec2> &polygon) {
-    if (!is_polygon_cw_winding(polygon)) {
-        std::reverse(polygon.begin(), polygon.end());
+        Polygon &polygon) {
+    if(polygon.winding() == Winding::CounterClockwise) {
+        polygon.flip_winding();
     }
 
     auto floor_texture = get_device_texture_from_flat(sector->floorpic);
 
     std::vector<glm::vec3> polys3d;
-    for (auto &p: polygon) {
+    for (auto &p: polygon.vertices()) {
         polys3d.emplace_back(p.x, RT_FixedToFloating(sector->floorheight), p.y);
     }
 
@@ -828,7 +684,7 @@ void debug_polygon(Polygon &polygon, const std::string& name) {
     auto smallest = glm::vec2(FLT_MAX, FLT_MAX);
     auto largest = glm::vec2(FLT_MIN, FLT_MIN);
 
-    for (auto vertex: polygon) {
+    for (auto vertex: polygon.vertices()) {
         smallest = glm::min(smallest, vertex);
         largest = glm::max(largest, vertex);
     }
