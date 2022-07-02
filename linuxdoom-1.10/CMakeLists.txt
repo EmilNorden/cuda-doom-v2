@@ -151,7 +151,7 @@ add_library(doom_lib
         z_zone.h opengl/common.h opengl/common.cpp)
 
 add_executable(doom
-        i_main.cpp geometry/polygon.cpp geometry/polygon.h)
+        i_main.cpp)
 
 target_link_libraries(doom
         doom_lib)
@@ -166,6 +166,7 @@ set_target_properties(doom PROPERTIES CUDA_ARCHITECTURES "86")
 add_subdirectory(renderer)
 add_subdirectory(wad)
 add_subdirectory(opengl)
+add_subdirectory(geometry)
 
 find_package(GLEW REQUIRED)
 find_package(OpenGL REQUIRED)
