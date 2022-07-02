@@ -10,8 +10,6 @@ target_sources(doom_lib PRIVATE
         cuda_utils.cuh
         device_material.cu
         device_material.cuh
-        device_material_loader.cu
-        device_material_loader.cuh
         device_random.cu
         device_random.cuh
         device_sprite.cu
