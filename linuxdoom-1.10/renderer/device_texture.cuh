@@ -14,6 +14,8 @@ public:
     __host__ __device__ size_t width() const { return m_width; }
     __host__ __device__ size_t height() const {return m_height; }
 
+    __host__ const std::uint16_t *data() const { return m_data; }
+
 private:
     std::uint16_t *m_data;
     size_t m_width;

@@ -14,6 +14,7 @@
 #include "wad/sprites.cuh"
 #include "p_spec.h"
 #include "rt_material.cuh"
+#include "rt_entities.cuh"
 #include <glm/gtx/rotate_vector.hpp>
 
 // CUDA <-> OpenGL interop
@@ -31,10 +32,6 @@ namespace detail {
     wad::SpriteData *sprite_data;
     wad::Wad *wad;
     size_t current_sample;
-    bool has_pending_entities = false;
-    std::vector<SceneEntity *> pending_attach_entities;
-    std::vector<SceneEntity *> pending_detach_entities;
-    std::vector<SceneEntity *> entities;
     std::unordered_map<sector_t*, SectorGeometry> sector_geometry;
 }
 
@@ -45,9 +42,6 @@ void print_cuda_device_info();
 
 void init_gl_buffers();
 
-void RT_ApplyPendingEntities();
-
-void RT_SwapRemoveEntity(std::vector<SceneEntity *> &collection, SceneEntity *entity_to_remove);
 
 void RT_InitGraphics(RayTracingInitOptions options) {
     std::vector<std::filesystem::path> paths;
@@ -88,7 +82,7 @@ void RT_Init(RayTracingInitOptions options) {
     std::cout << "Creating random states..." << std::flush;
     device::random = create_device_type<RandomGeneratorPool>(2048 * 256, 682856);
     std::cout << "Done." << std::endl;
-    cuda_assert(cudaMalloc(&device::palette, 768));
+    cuda_assert(cudaMallocManaged(&device::palette, 768));
 
 //std::vector<Square> &walls, std::vector<Triangle> &floors_ceilings, std::vector<MapThing> &map_things
     std::vector<Square *> walls;
@@ -169,10 +163,15 @@ bool RT_IsEnabled() {
 }
 
 void RT_RenderSample() {
-    if (detail::has_pending_entities) {
-        RT_ApplyPendingEntities();
-    }
+/*
+    if(!detail::scene_entities_to_free.empty()) {
+        for(auto entity : detail::scene_entities_to_free) {
+            cudaFree(entity);
+        }
 
+        detail::scene_entities_to_free.clear();
+    }
+*/
     device::renderer->render(
             device::camera,
             device::scene,
@@ -236,9 +235,11 @@ void RT_AttachToScene(SceneEntity *entity) {
     if (!entity) {
         return;
     }
+    //device::scene->add_entity(entity);
 
-    detail::has_pending_entities = true;
-    detail::pending_attach_entities.push_back(entity);
+    //detail::has_pending_entities = true;
+    //detail::pending_attach_entities.push_back(entity);
+    device::scene->add_entity(entity);
 }
 
 void RT_DetachFromScene(SceneEntity *entity) {
@@ -246,43 +247,9 @@ void RT_DetachFromScene(SceneEntity *entity) {
         return;
     }
 
-    detail::has_pending_entities = true;
-    detail::pending_detach_entities.push_back(entity);
-}
-
-void RT_ApplyPendingEntities() {
-    detail::has_pending_entities = false;
-
-    for (auto detach_entity: detail::pending_detach_entities) {
-        RT_SwapRemoveEntity(detail::entities, detach_entity);
-        RT_SwapRemoveEntity(detail::pending_attach_entities, detach_entity);
-    }
-    detail::pending_detach_entities.clear();
-
-    detail::entities.insert(detail::entities.end(), detail::pending_attach_entities.begin(),
-                            detail::pending_attach_entities.end());
-
-    for(auto &entity : detail::pending_attach_entities) {
-        if(entity->sprite.has_emissive_frames()) {
-            device::scene->add_light(entity);
-        }
-    }
-
-    detail::pending_attach_entities.clear();
-
-
-    device::scene->rebuild_entities(detail::entities);
-}
-
-void RT_SwapRemoveEntity(std::vector<SceneEntity*> &collection, SceneEntity *entity_to_remove) {
-    auto iter = std::find(collection.begin(), collection.end(), entity_to_remove);
-    if(iter == collection.end()) {
-        return;
-    }
-
-    //std::iter_swap(*iter, collection.back());
-    //collection.pop_back();
-    collection.erase(iter);
+    //detail::has_pending_entities = true;
+    //detail::pending_detach_entities.push_back(entity);
+    device::scene->remove_entity(entity);
 }
 
 void RT_VerticalDoorChanged(sector_t *sector) {

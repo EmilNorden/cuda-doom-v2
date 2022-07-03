@@ -85,11 +85,11 @@ trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, int depth, std:
                 palette[(palette_index * 3) + 2] / 255.0f,
         };
 
-        glm::vec3 incoming_light{0.25f};
+        glm::vec3 incoming_light{0.5f};
 
         auto intersection_point = ray.origin() + (ray.direction() * intersection.distance);
-        for(int i = 0; i < scene->m_emissive_entities_count; ++i) {
-            auto& light = scene->m_emissive_entities[i];
+        for(int i = 0; i < scene->m_emissive_entities.count(); ++i) {
+            const auto& light = scene->m_emissive_entities[i];
             auto light_material = light->sprite.get_material(light->frame, light->rotation);
             if(light_material->emission().x == 0.0f && light_material->emission().y == 0.0f && light_material->emission().z == 0.0f) {
                 continue;
@@ -110,6 +110,14 @@ trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, int depth, std:
             }
 
             incoming_light += glm::dot(intersection.world_normal, light_direction) * light_material->emission() * (1 / (light_distance*light_distance));
+        }
+
+        if(intersection.material->reflectivity() > 0.0f) {
+            //return glm::vec3(1,0,1);
+            auto reflected_direction = glm::reflect(ray.direction(), intersection.world_normal);
+            Ray reflected_ray(intersection_point + (intersection.world_normal * 0.01f), reflected_direction);
+
+            diffuse = (1.0f - intersection.material->reflectivity()) * diffuse + (trace_ray<N>(reflected_ray, scene, random, depth - 1, palette) * intersection.material->reflectivity());
         }
 
         return (diffuse * incoming_light) + intersection.material->emission();

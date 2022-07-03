@@ -6,15 +6,17 @@
 #include <iostream>
 #include <utility>
 #include <fmt/core.h>
+#include "renderer/device_texture.cuh"
 
 class MaterialDefinition {
 public:
     MaterialDefinition()
-            : emission_color({0, 0, 0}), emission_intensity(0.0f) {
+            : emission_color({0, 0, 0}), emission_intensity(0.0f), reflectivity(0.0f) {
     }
 
     glm::vec3 emission_color;
     float emission_intensity;
+    float reflectivity;
 };
 
 class MaterialsContext {
@@ -54,15 +56,15 @@ void RT_InitMaterials(const RayTracingInitOptions &options) {
                 texture_names.push_back(toml::find<std::string>(mat, "texture"));
             }
 
-            if(mat.contains("textures")) {
+            if (mat.contains("textures")) {
                 texture_names = toml::find<std::vector<std::string>>(mat, "textures");
             }
 
-            if(texture_names.empty()) {
+            if (texture_names.empty()) {
                 continue;
             }
 
-            for(auto &texture_name : texture_names) {
+            for (auto &texture_name: texture_names) {
                 if (material_definitions.count(texture_name) == 1) {
                     std::cerr << fmt::format("Found duplicate material definitions for {}\n", texture_name);
                     continue;
@@ -70,10 +72,13 @@ void RT_InitMaterials(const RayTracingInitOptions &options) {
 
                 MaterialDefinition material_definition;
 
+
+                material_definition.emission_intensity = toml::find_or<float>(mat, "emission_intensity", 0.0f);
+
                 auto emission = toml::find_or<std::vector<float>>(mat, "emission", {0, 0, 0});
                 material_definition.emission_color = glm::vec3(emission[0], emission[1], emission[2]);
 
-                material_definition.emission_intensity = toml::find_or<float>(mat, "emission_intensity", 0.0f);
+                material_definition.reflectivity = toml::find_or<float>(mat, "reflectivity", 0.0f);
 
                 material_definitions[texture_name] = material_definition;
             }
@@ -87,7 +92,33 @@ void RT_InitMaterials(const RayTracingInitOptions &options) {
 DeviceMaterial RT_GetMaterial(std::string_view name, DeviceTexture *texture) {
     DeviceMaterial material(texture);
     auto material_definition = materials_context.get_or_default(name);
+
+    if (material_definition.emission_intensity > 0.0f && material_definition.emission_color.x == 0.0f &&
+        material_definition.emission_color.y == 0.0f && material_definition.emission_color.z == 0.0f) {
+        glm::vec3 color_sum{};
+        int pixel_count = 0;
+        for (int i = 0; i < texture->width() * texture->height(); ++i) {
+            auto palette_index = texture->data()[i];
+            if (palette_index > 0xFF) {
+                continue;
+            }
+
+            auto color = glm::vec3{
+                    device::palette[palette_index * 3] / 255.0f,
+                    device::palette[(palette_index * 3) + 1] / 255.0f,
+                    device::palette[(palette_index * 3) + 2] / 255.0f,
+            };
+
+            color_sum += color;
+            pixel_count++;
+        }
+
+        material_definition.emission_color = color_sum / static_cast<float>(pixel_count);
+    }
+
     material.set_emission(material_definition.emission_color * material_definition.emission_intensity);
+    material.set_reflectivity(material_definition.reflectivity);
+
 
     return material;
 }

@@ -14,6 +14,7 @@
 class Scene;
 namespace device {
     extern Scene *scene;
+    extern std::uint8_t *palette;
 }
 
 namespace detail {

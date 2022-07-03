@@ -524,6 +524,16 @@ void create_mesh_from_polygon(
 
     auto floor_texture = get_device_texture_from_flat(sector->floorpic);
 
+    auto floor_lump_number = firstflat + sector->floorpic;
+    auto floor_name = lumpinfo[floor_lump_number].name;
+
+    char name[9];
+    name[8] = 0;
+    for(int i = 0; i < 8; ++i) {
+        name[i] = floor_name[i];
+    }
+    auto floor_material = RT_GetMaterial(name, floor_texture);
+
     std::vector<glm::vec3> polys3d;
     for (auto &p: polygon.vertices()) {
         polys3d.emplace_back(p.x, RT_FixedToFloating(sector->floorheight), p.y);
@@ -539,7 +549,7 @@ void create_mesh_from_polygon(
                 glm::vec3(tri.v0().x, floor_height, tri.v0().y),
                 glm::vec3(tri.v1().x, floor_height, tri.v1().y),
                 glm::vec3(tri.v2().x, floor_height, tri.v2().y),
-                DeviceMaterial(floor_texture)));
+                floor_material));
     }
 
     auto &sector_geometry = scene_data.sector_geometry[sector];

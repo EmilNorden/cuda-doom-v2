@@ -615,6 +615,8 @@ P_SetupLevel
     rejectmatrix = (byte *) W_CacheLumpNum(lumpnum + ML_REJECT, PU_LEVEL);
     P_GroupLines();
 
+    RT_BuildScene();
+
     bodyqueslot = 0;
     deathmatch_p = deathmatchstarts;
     P_LoadThings(lumpnum + ML_THINGS);
@@ -643,7 +645,6 @@ P_SetupLevel
         R_PrecacheLevel();
 
     //printf ("free memory: 0x%x\n", Z_FreeMemory());
-    RT_BuildScene();
 }
 
 

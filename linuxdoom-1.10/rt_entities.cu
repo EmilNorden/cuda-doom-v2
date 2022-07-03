@@ -9,6 +9,7 @@
 
 namespace detail {
     std::array<std::optional<DeviceSprite>, NUMSPRITES> device_sprite_cache;
+    std::vector<SceneEntity*> scene_entities_to_free;
 }
 
 std::optional<DeviceSprite> RT_GetDeviceSprite(spritenum_t sprite);
@@ -46,7 +47,8 @@ void RT_DestroySceneEntity(SceneEntity *entity) {
         return;
     }
 
-    cudaFree(entity);
+    detail::scene_entities_to_free.push_back(entity);
+    // cudaFree(entity);
 }
 
 void RT_UpdateEntityPosition(mobj_t *obj) {

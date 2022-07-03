@@ -22,11 +22,12 @@ struct NodeSearchData {
 
 Scene::Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceilings,
              std::vector<SceneEntity *> &scene_entities, DeviceTexture *sky)
-        : m_emissive_entities(nullptr), m_emissive_entities_count(0), m_sky(sky) {
+        : m_emissive_entities(200), m_sky(sky) {
     m_walls_root = create_device_type<TreeNode<Square *>>();
     m_floors_ceilings_root = create_device_type<TreeNode<Triangle *>>();
     m_entities_root = create_device_type<TreeNode<SceneEntity *>>();
-    cudaMallocManaged(&m_emissive_entities, sizeof(SceneEntity *) * 200);
+    //cudaMallocManaged(&m_emissive_entities, sizeof(SceneEntity *) * 200);
+
 
     std::cout << "Building scene with " << walls.size() << " walls, " << floors_ceilings.size()
               << " floor/ceiling triangles and " << scene_entities.size() << " entities\n";
@@ -93,29 +94,12 @@ Scene::Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceili
     };
 
     std::function<SplitComparison(SceneEntity *item, Axis axis, float splitting_value)> entity_split_callback = [](
-            SceneEntity *item, Axis axis, float splitting_value) {
-        auto sprite_max_bounds = item->sprite.calculate_max_bounds();
-        auto min_bounds = item->position - glm::vec3(sprite_max_bounds.x / 2.0f, 0, sprite_max_bounds.x / 2.0f);
-        auto max_bounds =
-                item->position + glm::vec3(sprite_max_bounds.x / 2.0f, sprite_max_bounds.y, sprite_max_bounds.x / 2.0f);
-
-        bool is_greater_or_equal = min_bounds[axis] >= splitting_value ||
-                                   max_bounds[axis] >= splitting_value;
-
-        bool is_less = min_bounds[axis] <= splitting_value ||
-                       max_bounds[axis] <= splitting_value;
-
-        if (is_greater_or_equal && is_less) {
-            return SplitComparison::Both;
-        } else if (is_greater_or_equal) {
-            return SplitComparison::GreaterOrEqual;
-        } else {
-            return SplitComparison::Less;
-        }
+            const SceneEntity *entity, Axis axis, float split_value) {
+        return Scene::scene_entity_axis_comparison(entity, axis, split_value);
     };
 
     auto scene_entities_copy = scene_entities;
-    build_node(*m_entities_root, scene_entities_copy, Axis::X, valid_axes, 2000,
+    build_node(*m_entities_root, scene_entities_copy, Axis::X, valid_axes, EntityGroupSize,
                entity_sort_callback,
                entity_median_callback,
                entity_split_callback);
@@ -127,9 +111,7 @@ void
 Scene::build_walls_node(TreeNode<Square *> &node, std::vector<Square *> &walls, Axis current_axis, bool valid_axes[3],
                         size_t size_limit) {
     if (walls.size() < size_limit) {
-        cuda_assert(cudaMalloc(&node.items, sizeof(Square *) * walls.size()));
-        cuda_assert(cudaMemcpy(node.items, walls.data(), sizeof(Square *) * walls.size(), cudaMemcpyHostToDevice));
-        node.item_count = walls.size();
+        node.items = DeviceFixedVector<Square *>(walls, size_limit);
         node.left = nullptr;
         node.right = nullptr;
         return;
@@ -176,8 +158,6 @@ Scene::build_walls_node(TreeNode<Square *> &node, std::vector<Square *> &walls, 
 
     node.splitting_axis = current_axis;
     node.splitting_value = splitting_value;
-    node.items = nullptr;
-    node.item_count = 0;
     cuda_assert(cudaMallocManaged(&node.left, sizeof(TreeNode<Square>)));
     cuda_assert(cudaMallocManaged(&node.right, sizeof(TreeNode<Square>)));
 
@@ -191,7 +171,7 @@ Scene::build_walls_node(TreeNode<Square *> &node, std::vector<Square *> &walls, 
 
 template<typename T>
 __device__ bool is_leaf(TreeNode<T> *node) {
-    return node->items;
+    return node->items.data();
 }
 
 enum class RangePlaneComparison {
@@ -228,7 +208,7 @@ CompareRangeWithPlane(const Ray &ray, float tmin, float tmax, TreeNode<T> *node)
 __device__ bool
 intersects_walls_node(const Ray &ray, TreeNode<Square *> *node, Intersection &intersection, float tmax) {
     auto success = false;
-    for (auto i = 0; i < node->item_count; ++i) {
+    for (auto i = 0; i < node->items.count(); ++i) {
         float hit_distance = 0.0f;
         float u = 0.0f;
         float v = 0.0f;
@@ -255,7 +235,7 @@ __device__ bool
 intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle *> *node, Intersection &intersection,
                                     float tmax) {
     auto success = false;
-    for (auto i = 0; i < node->item_count; ++i) {
+    for (auto i = 0; i < node->items.count(); ++i) {
         float hit_distance = 0.0f;
         float u = 0.0f;
         float v = 0.0f;
@@ -378,7 +358,7 @@ __device__ bool Scene::intersect_floors_and_ceilings(const Ray &ray, Intersectio
 __device__ bool
 intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersection &intersection, float tmax) {
     auto success = false;
-    for (auto i = 0; i < node->item_count; ++i) {
+    for (auto i = 0; i < node->items.count(); ++i) {
         float hit_distance = 0.0f;
         float u = 0.0f;
         float v = 0.0f;
@@ -460,20 +440,6 @@ __device__ bool Scene::intersect(const Ray &ray, Intersection &intersection, flo
 }
 
 void Scene::rebuild_entities(const std::vector<SceneEntity *> &scene_entities) {
-    // Find emissive entities
-    // std::vector<SceneEntity*> emissive_entities;
-    /*m_emissive_entities_count = 0;
-    for (auto entity: scene_entities) {
-        if (entity->sprite.has_emissive_frames()) {
-            m_emissive_entities[m_emissive_entities_count] = entity;
-            ++m_emissive_entities_count;
-            if (m_emissive_entities_count >= 200) {
-                break;
-            }
-        }
-    }*/
-
-
     // TODO: NEED TO FREE EXISTING NODES OR ELSE LEAK MEMORY
     std::function<void(std::vector<SceneEntity *> &, Axis axis)> entity_sort_callback = [](
             std::vector<SceneEntity *> &items,
@@ -488,25 +454,8 @@ void Scene::rebuild_entities(const std::vector<SceneEntity *> &scene_entities) {
     };
 
     std::function<SplitComparison(SceneEntity *item, Axis axis, float splitting_value)> entity_split_callback = [](
-            SceneEntity *item, Axis axis, float splitting_value) {
-        auto sprite_max_bounds = item->sprite.calculate_max_bounds();
-        auto min_bounds = item->position - glm::vec3(sprite_max_bounds.x / 2.0f, 0, sprite_max_bounds.x / 2.0f);
-        auto max_bounds =
-                item->position + glm::vec3(sprite_max_bounds.x / 2.0f, sprite_max_bounds.y, sprite_max_bounds.x / 2.0f);
-
-        bool is_greater_or_equal = min_bounds[axis] >= splitting_value ||
-                                   max_bounds[axis] >= splitting_value;
-
-        bool is_less = min_bounds[axis] <= splitting_value ||
-                       max_bounds[axis] <= splitting_value;
-
-        if (is_greater_or_equal && is_less) {
-            return SplitComparison::Both;
-        } else if (is_greater_or_equal) {
-            return SplitComparison::GreaterOrEqual;
-        } else {
-            return SplitComparison::Less;
-        }
+            const SceneEntity *entity, Axis axis, float split_value) {
+        return Scene::scene_entity_axis_comparison(entity, axis, split_value);
     };
 
     auto scene_entities_copy = scene_entities;
@@ -519,10 +468,112 @@ void Scene::rebuild_entities(const std::vector<SceneEntity *> &scene_entities) {
 }
 
 void Scene::add_light(SceneEntity *entity) {
-    if(m_emissive_entities_count >= 200) {
+    if (m_emissive_entities.is_full()) {
         return;
     }
 
-    m_emissive_entities[m_emissive_entities_count] = entity;
-    m_emissive_entities_count++;
+    m_emissive_entities.push_back(entity);
+}
+
+void Scene::remove_light(SceneEntity *entity) {
+    m_emissive_entities.remove(entity);
+}
+
+void Scene::add_entity(SceneEntity *entity) {
+    if(entity->sprite.has_emissive_frames()) {
+        add_light(entity);
+    }
+    add_entity(entity, *m_entities_root, Axis::X);
+}
+
+void Scene::add_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node, Axis splitting_axis) {
+    bool valid_axes[3] = {true, false, true};
+    if (node.items.data()) {
+        if (!node.items.is_full()) {
+            node.items.push_back(entity);
+            return;
+        }
+        printf("ITS SPLITTING TIME\n");
+
+        std::sort(node.items.data(), node.items.data() + node.items.count(),
+                  [&](const SceneEntity *a, const SceneEntity *b) {
+                      return a->position[static_cast<int>(splitting_axis)] <
+                             b->position[static_cast<int>(splitting_axis)];
+                  });
+
+        auto half_size = node.items.count() / 2;
+        auto median_point = node.items[half_size]->position;
+        auto splitting_value = median_point[static_cast<int>(splitting_axis)];
+
+        std::vector<SceneEntity *> left_side;
+        std::vector<SceneEntity *> right_side;
+
+        left_side.reserve(half_size);
+        right_side.reserve(half_size);
+
+        for (int i = 0; i < node.items.count(); ++i) {
+            auto result = scene_entity_axis_comparison(node.items[i], splitting_axis, splitting_value);
+            if (result == SplitComparison::GreaterOrEqual || result == SplitComparison::Both) {
+                right_side.push_back(node.items[i]);
+            }
+
+            if (result == SplitComparison::Less || result == SplitComparison::Both) {
+                left_side.push_back(node.items[i]);
+            }
+        }
+        node.items.reset();
+        node.splitting_axis = splitting_axis;
+        node.splitting_value = splitting_value;
+        cuda_assert(cudaMallocManaged(&node.left, sizeof(TreeNode<SceneEntity *>)));
+        cuda_assert(cudaMallocManaged(&node.right, sizeof(TreeNode<SceneEntity *>)));
+        node.left->items = DeviceFixedVector<SceneEntity*>(EntityGroupSize);
+        node.right->items = DeviceFixedVector<SceneEntity*>(EntityGroupSize);
+    }
+
+    do {
+        splitting_axis = static_cast<Axis>((splitting_axis + 1) % 3);
+    } while (!valid_axes[splitting_axis]);
+
+    auto axis_comparison = scene_entity_axis_comparison(entity, node.splitting_axis, node.splitting_value);
+    switch (axis_comparison) {
+        case SplitComparison::GreaterOrEqual:
+            add_entity(entity, *node.right, splitting_axis);
+            break;
+        case SplitComparison::Less:
+            add_entity(entity, *node.left, splitting_axis);
+            break;
+        case SplitComparison::Both:
+            add_entity(entity, *node.right, splitting_axis);
+            add_entity(entity, *node.left, splitting_axis);
+            break;
+    }
+}
+
+void Scene::remove_entity(SceneEntity *entity) {
+    if(entity->sprite.has_emissive_frames()) {
+        remove_entity(entity);
+    }
+    remove_entity(entity, *m_entities_root);
+}
+
+void Scene::remove_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node) {
+    if (node.items.data()) {
+        node.items.remove(entity);
+
+        return;
+    }
+
+    auto axis_comparison = scene_entity_axis_comparison(entity, node.splitting_axis, node.splitting_value);
+    switch (axis_comparison) {
+        case SplitComparison::GreaterOrEqual:
+            remove_entity(entity, *node.right);
+            break;
+        case SplitComparison::Less:
+            remove_entity(entity, *node.left);
+            break;
+        case SplitComparison::Both:
+            remove_entity(entity, *node.right);
+            remove_entity(entity, *node.left);
+            break;
+    }
 }
