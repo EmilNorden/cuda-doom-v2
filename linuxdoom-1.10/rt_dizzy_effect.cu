@@ -15,7 +15,7 @@ constexpr float DizzySize = 0.2f;
 
 void RT_PlayerDamaged(int damage) {
     printf("I took %d damage\n", damage);
-    if(damage < 25) {
+    if(damage < 16) {
         return;
     }
     if (current_state != DizzyState::Idle) {
