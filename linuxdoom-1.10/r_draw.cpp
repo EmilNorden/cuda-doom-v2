@@ -67,6 +67,7 @@ int viewheight;
 int viewwindowx;
 int viewwindowy;
 byte *ylookup[MAXHEIGHT];
+byte *ymasklookup[MAXHEIGHT];
 int columnofs[MAXWIDTH];
 
 // Color tables for different players,
@@ -94,6 +95,7 @@ byte *dc_source;
 int dccount;
 
 extern unsigned char *pixels[SCREEN_COUNT];
+extern unsigned char *mask;
 
 //
 // A column is a vertical slice/span from a wall texture that,
@@ -105,6 +107,7 @@ extern unsigned char *pixels[SCREEN_COUNT];
 void R_DrawColumn(void) {
     int count;
     byte *dest;
+    byte *dest_mask;
     fixed_t frac;
     fixed_t fracstep;
 
@@ -125,6 +128,7 @@ void R_DrawColumn(void) {
     // Use ylookup LUT to avoid multiply with ScreenWidth.
     // Use columnofs LUT for subwindows? 
     dest = ylookup[dc_yl] + columnofs[dc_x];
+    dest_mask = ymasklookup[dc_yl] + columnofs[dc_x];
 
     // Determine scaling,
     //  which is the only mapping to be done.
@@ -137,10 +141,12 @@ void R_DrawColumn(void) {
     do {
         // Re-map color indices from wall texture column
         //  using a lighting/special effects LUT.
-         *dest = dc_colormap[dc_source[(frac >> FRACBITS) & 127]];
+        *dest = dc_colormap[dc_source[(frac >> FRACBITS) & 127]];
+        *dest_mask = 0xFF;
         // *dest = 0xA0;
 
         dest += SCREENWIDTH;
+        dest_mask += SCREENWIDTH;
         frac += fracstep;
 
     } while (count--);
@@ -211,6 +217,7 @@ void R_DrawColumnLow(void) {
     int count;
     byte *dest;
     byte *dest2;
+    byte *dest_mask;
     fixed_t frac;
     fixed_t fracstep;
 
@@ -234,6 +241,7 @@ void R_DrawColumnLow(void) {
 
     dest = ylookup[dc_yl] + columnofs[dc_x];
     dest2 = ylookup[dc_yl] + columnofs[dc_x + 1];
+    dest_mask = ymasklookup[dc_yl] + columnofs[dc_x];
 
     fracstep = dc_iscale;
     frac = dc_texturemid + (dc_yl - centery) * fracstep;
@@ -241,8 +249,10 @@ void R_DrawColumnLow(void) {
     do {
         // Hack. Does not work corretly.
         *dest2 = *dest = dc_colormap[dc_source[(frac >> FRACBITS) & 127]];
+        *dest_mask = 0xFF;
         dest += SCREENWIDTH;
         dest2 += SCREENWIDTH;
+        dest_mask += SCREENWIDTH;
         frac += fracstep;
 
     } while (count--);
@@ -281,6 +291,7 @@ int fuzzpos = 0;
 void R_DrawFuzzColumn(void) {
     int count;
     byte *dest;
+    byte *dest_mask;
     fixed_t frac;
     fixed_t fracstep;
 
@@ -335,6 +346,7 @@ void R_DrawFuzzColumn(void) {
 
     // Does not work with blocky mode.
     dest = ylookup[dc_yl] + columnofs[dc_x];
+    dest_mask = ymasklookup[dc_yl] + columnofs[dc_x];
 
     // Looks familiar.
     fracstep = dc_iscale;
@@ -349,12 +361,14 @@ void R_DrawFuzzColumn(void) {
         //  left or right of the current one.
         // Add index from colormap to index.
         *dest = colormaps[6 * 256 + dest[fuzzoffset[fuzzpos]]];
+        *dest_mask = 0xFF;
 
         // Clamp table lookup index.
         if (++fuzzpos == FUZZTABLE)
             fuzzpos = 0;
 
         dest += SCREENWIDTH;
+        dest_mask += SCREENWIDTH;
 
         frac += fracstep;
     } while (count--);
@@ -376,6 +390,7 @@ byte *translationtables;
 void R_DrawTranslatedColumn(void) {
     int count;
     byte *dest;
+    byte *dest_mask;
     fixed_t frac;
     fixed_t fracstep;
 
@@ -415,6 +430,7 @@ void R_DrawTranslatedColumn(void) {
 
     // FIXME. As above.
     dest = ylookup[dc_yl] + columnofs[dc_x];
+    dest_mask = ymasklookup[dc_yl] + columnofs[dc_x];
 
     // Looks familiar.
     fracstep = dc_iscale;
@@ -429,6 +445,9 @@ void R_DrawTranslatedColumn(void) {
         //  is mapped to gray, red, black/indigo.
         *dest = dc_colormap[dc_translation[dc_source[frac >> FRACBITS]]];
         dest += SCREENWIDTH;
+
+        *dest_mask = 0xFF;
+        dest_mask += SCREENWIDTH;
 
         frac += fracstep;
     } while (count--);
@@ -500,6 +519,7 @@ void R_DrawSpan(void) {
     fixed_t xfrac;
     fixed_t yfrac;
     byte *dest;
+    byte *dest_mask;
     int count;
     int spot;
 
@@ -519,6 +539,7 @@ void R_DrawSpan(void) {
     yfrac = ds_yfrac;
 
     dest = ylookup[ds_y] + columnofs[ds_x1];
+    dest_mask = ymasklookup[ds_y] + columnofs[ds_x1];
 
     // We do not check for zero spans here?
     count = ds_x2 - ds_x1;
@@ -530,6 +551,7 @@ void R_DrawSpan(void) {
         // Lookup pixel from flat texture tile,
         //  re-index using light/colormap.
         *dest++ = ds_colormap[ds_source[spot]];
+        *dest_mask++ = 0xFF;
 
         // Next step in u,v.
         xfrac += ds_xstep;
@@ -620,6 +642,7 @@ void R_DrawSpanLow(void) {
     fixed_t xfrac;
     fixed_t yfrac;
     byte *dest;
+    byte *dest_mask;
     int count;
     int spot;
 
@@ -642,6 +665,7 @@ void R_DrawSpanLow(void) {
     ds_x2 <<= 1;
 
     dest = ylookup[ds_y] + columnofs[ds_x1];
+    dest_mask = ymasklookup[ds_y] + columnofs[ds_x1];
 
 
     count = ds_x2 - ds_x1;
@@ -651,6 +675,8 @@ void R_DrawSpanLow(void) {
         //  while scale is adjusted appropriately.
         *dest++ = ds_colormap[ds_source[spot]];
         *dest++ = ds_colormap[ds_source[spot]];
+        *dest_mask++ = 0xFF;
+        *dest_mask++ = 0xFF;
 
         xfrac += ds_xstep;
         yfrac += ds_ystep;
@@ -687,8 +713,11 @@ R_InitBuffer
         viewwindowy = (SCREENHEIGHT - SBARHEIGHT - height) >> 1;
 
     // Preclaculate all row offsets.
-    for (i = 0; i < height; i++)
+    for (i = 0; i < height; i++) {
         ylookup[i] = pixels[0] + (i + viewwindowy) * SCREENWIDTH;
+        ymasklookup[i] = mask + (i + viewwindowy) * SCREENWIDTH;
+    }
+
 }
 
 

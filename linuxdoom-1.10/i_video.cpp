@@ -349,12 +349,11 @@ void I_StartTic(void) {
 // I_FinishUpdate
 //
 void I_FinishUpdate(void) {
-    if(RT_IsEnabled()) {
+    if (RT_IsEnabled()) {
         RT_Present();
     }
-    else {
-        V_Render();
-    }
+    V_Render();
+
 
     V_Swap();
 /*

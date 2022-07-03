@@ -62,7 +62,6 @@ P_SetPsprite
          statenum_t stnum) {
     pspdef_t *psp;
     state_t *state;
-
     psp = &player->psprites[position];
 
     do {

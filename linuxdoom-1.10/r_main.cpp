@@ -38,7 +38,8 @@ static const char rcsid[] = "$Id: r_main.c,v 1.5 1997/02/03 22:45:12 b1 Exp $";
 
 #include "r_local.h"
 #include "r_sky.h"
-
+#include "rt_raytracing.cuh"
+#include "r_things.h"
 
 
 
@@ -790,30 +791,38 @@ void R_SetupFrame(player_t *player) {
 // R_RenderView
 //
 void R_RenderPlayerView(player_t *player) {
-    R_SetupFrame(player);
+    if (RT_IsEnabled()) {
+        for (int i = 0; i < 1; ++i) {
+            RT_RenderSample();
+        }
+        R_DrawPlayerSprites();
+    } else {
+        R_SetupFrame(player);
 
-    // Clear buffers.
-    R_ClearClipSegs();
-    R_ClearDrawSegs();
-    R_ClearPlanes();
-    R_ClearSprites();
+        // Clear buffers.
+        R_ClearClipSegs();
+        R_ClearDrawSegs();
+        R_ClearPlanes();
+        R_ClearSprites();
 
-    // check for new console commands.
-    NetUpdate();
+        // check for new console commands.
+        NetUpdate();
 
-    // The head node is the last node output.
-    R_RenderBSPNode(numnodes - 1);
+        // The head node is the last node output.
+        R_RenderBSPNode(numnodes - 1);
 
-    // Check for new console commands.
-    NetUpdate();
+        // Check for new console commands.
+        NetUpdate();
 
-    R_DrawPlanes();
+        R_DrawPlanes();
 
-    // Check for new console commands.
-    NetUpdate();
+        // Check for new console commands.
+        NetUpdate();
 
-    R_DrawMasked();
+        R_DrawMasked();
 
-    // Check for new console commands.
-    NetUpdate();
+        // Check for new console commands.
+        NetUpdate();
+    }
+
 }

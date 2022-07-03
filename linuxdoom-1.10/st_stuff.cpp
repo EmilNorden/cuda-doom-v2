@@ -60,6 +60,7 @@ static const char
 // Data.
 #include "dstrings.h"
 #include "sounds.h"
+#include "rt_raytracing.cuh"
 
 extern unsigned char *pixels[SCREEN_COUNT];
 
@@ -1039,13 +1040,13 @@ void ST_doRefresh(void) {
 
 void ST_diffDraw(void) {
     // update all widgets
-    ST_drawWidgets(false);
+    ST_drawWidgets(RT_IsEnabled());
 }
 
 void ST_Drawer(boolean fullscreen, boolean refresh) {
 
     st_statusbaron = (!fullscreen) || automapactive;
-    st_firsttime = st_firsttime || refresh;
+    st_firsttime = st_firsttime || refresh || RT_IsEnabled();
 
     // Do red-/gold-shifts from damage/items
     ST_doPaletteStuff();
