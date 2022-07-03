@@ -1,7 +1,7 @@
 #include "device_material.cuh"
 #include "device_texture.cuh"
 
-__device__ std::uint8_t DeviceMaterial::sample_diffuse(const glm::vec2 &uv) const
+__device__ std::uint16_t DeviceMaterial::sample_diffuse(const glm::vec2 &uv) const
 {
     return m_diffuse->sample(uv * m_uv_scale);
 }

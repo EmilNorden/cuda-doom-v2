@@ -22,10 +22,11 @@ struct NodeSearchData {
 
 Scene::Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceilings,
              std::vector<SceneEntity *> &scene_entities, DeviceTexture *sky)
-        : m_sky(sky) {
+        : m_emissive_entities(nullptr), m_emissive_entities_count(0), m_sky(sky) {
     m_walls_root = create_device_type<TreeNode<Square *>>();
     m_floors_ceilings_root = create_device_type<TreeNode<Triangle *>>();
     m_entities_root = create_device_type<TreeNode<SceneEntity *>>();
+    cudaMallocManaged(&m_emissive_entities, sizeof(SceneEntity *) * 200);
 
     std::cout << "Building scene with " << walls.size() << " walls, " << floors_ceilings.size()
               << " floor/ceiling triangles and " << scene_entities.size() << " entities\n";
@@ -233,14 +234,14 @@ intersects_walls_node(const Ray &ray, TreeNode<Square *> *node, Intersection &in
         float v = 0.0f;
         glm::vec3 normal{};
         if (intersects_wall(ray, node->items[i], hit_distance, u, v, normal) && hit_distance < tmax) {
-            if (node->items[i]->texture->sample({u, v}) > 0xFF) {
+            if (node->items[i]->material.sample_diffuse({u, v}) > 0xFF) {
                 continue;
             }
             tmax = hit_distance;
             intersection.distance = hit_distance;
             intersection.u = u;
             intersection.v = v;
-            intersection.texture = node->items[i]->texture;
+            intersection.material = &node->items[i]->material;
             intersection.world_normal = normal;
 
             success = true;
@@ -263,7 +264,7 @@ intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle *> *node, 
             intersection.distance = hit_distance;
             intersection.u = u;
             intersection.v = v;
-            intersection.texture = node->items[i]->texture;
+            intersection.material = &node->items[i]->material;
             if (ray.direction().y >= 0.0f) {
                 // Going upwards, must have hit ceiling
                 intersection.world_normal = glm::vec3{0.0f, -1.0f, 0.0f};
@@ -382,15 +383,15 @@ intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersecti
         float u = 0.0f;
         float v = 0.0f;
         if (intersects_scene_entity(ray, node->items[i], hit_distance, u, v) && hit_distance < tmax) {
-            auto texture = node->items[i]->sprite.get_texture(node->items[i]->frame, node->items[i]->rotation);
+            auto material = node->items[i]->sprite.get_material(node->items[i]->frame, node->items[i]->rotation);
 
-            if (texture->sample({u, v}) > 0xFF) {
+            if (material->sample_diffuse({u, v}) > 0xFF) {
                 continue;
             }
             tmax = hit_distance;
             intersection.u = u;
             intersection.v = v;
-            intersection.texture = texture;
+            intersection.material = material;
             intersection.world_normal = glm::vec3(0, 1, 0); // TODO Dirty workaround for now
             intersection.distance = hit_distance;
             success = true;
@@ -448,17 +449,31 @@ __device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersec
     return false;
 }
 
-__device__ bool Scene::intersect(const Ray &ray, Intersection &intersection) {
-    intersection.distance = FLT_MAX;
+__device__ bool Scene::intersect(const Ray &ray, Intersection &intersection, float tmax) {
+    intersection.distance = tmax;
 
     auto intersects_walls = intersect_walls(ray, intersection);
     auto intersects_floors_or_ceilings = intersect_floors_and_ceilings(ray, intersection);
     auto intersects_entities = intersect_entities(ray, intersection);
-    //return intersects_walls || intersects_floors_or_ceilings || intersects_things;
+    //return intersects_floors_or_ceilings;
     return intersects_walls || intersects_floors_or_ceilings || intersects_entities;
 }
 
-void Scene::rebuild_entities(const std::vector<SceneEntity*>& scene_entities) {
+void Scene::rebuild_entities(const std::vector<SceneEntity *> &scene_entities) {
+    // Find emissive entities
+    // std::vector<SceneEntity*> emissive_entities;
+    /*m_emissive_entities_count = 0;
+    for (auto entity: scene_entities) {
+        if (entity->sprite.has_emissive_frames()) {
+            m_emissive_entities[m_emissive_entities_count] = entity;
+            ++m_emissive_entities_count;
+            if (m_emissive_entities_count >= 200) {
+                break;
+            }
+        }
+    }*/
+
+
     // TODO: NEED TO FREE EXISTING NODES OR ELSE LEAK MEMORY
     std::function<void(std::vector<SceneEntity *> &, Axis axis)> entity_sort_callback = [](
             std::vector<SceneEntity *> &items,
@@ -501,4 +516,13 @@ void Scene::rebuild_entities(const std::vector<SceneEntity*>& scene_entities) {
                entity_sort_callback,
                entity_median_callback,
                entity_split_callback);
+}
+
+void Scene::add_light(SceneEntity *entity) {
+    if(m_emissive_entities_count >= 200) {
+        return;
+    }
+
+    m_emissive_entities[m_emissive_entities_count] = entity;
+    m_emissive_entities_count++;
 }

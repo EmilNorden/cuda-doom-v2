@@ -2,7 +2,7 @@
 #include "ray.cuh"
 
 __device__ bool intersects_scene_entity(const Ray &ray, SceneEntity *entity, float &hit_distance, float &u, float &v) {
-    auto sprite_texture = entity->sprite.get_texture(entity->frame, entity->rotation);
+    auto sprite_texture = entity->sprite.get_material(entity->frame, entity->rotation)->diffuse_map();
     auto sprite_offsets = entity->sprite.get_offsets(entity->frame, entity->rotation);
     auto width = static_cast<float>(sprite_texture->width());
     auto height = static_cast<float>(sprite_texture->height());
@@ -18,7 +18,7 @@ __device__ bool intersects_scene_entity(const Ray &ray, SceneEntity *entity, flo
 
     auto uv_scale = glm::vec2(1.0f / width, 1.0f / height);
 
-    Square s(top_left, bitangent * width, tangent * height, uv_scale, nullptr);
+    Square s(top_left, bitangent * width, tangent * height, uv_scale, DeviceMaterial(nullptr));
 
     glm::vec3 normal;
     auto result = intersects_wall(ray, &s, hit_distance, u , v, normal);

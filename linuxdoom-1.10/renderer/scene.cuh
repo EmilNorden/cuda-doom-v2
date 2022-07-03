@@ -11,6 +11,7 @@
 #include "square.cuh"
 #include "triangle.cuh"
 #include "intersection.cuh"
+#include "cuda_utils.cuh"
 
 #include <functional>
 
@@ -40,16 +41,22 @@ class Scene {
 public:
     Scene(std::vector<Square*> &walls, std::vector<Triangle*> &floors_ceilings, std::vector<SceneEntity*> &scene_entities, DeviceTexture *sky);
 
-    __device__ bool intersect(const Ray &ray, Intersection &intersection);
+    __device__ bool intersect(const Ray &ray, Intersection &intersection, float tmax = FLT_MAX);
 
     [[nodiscard]] __device__ const DeviceTexture *sky() const { return m_sky; }
 
     void rebuild_entities(const std::vector<SceneEntity*>& scene_entities);
 
+    SceneEntity **m_emissive_entities;
+    size_t m_emissive_entities_count;
+
+    void add_light(SceneEntity *entity);
+
 private:
     TreeNode<Square*> *m_walls_root;
     TreeNode<Triangle*> *m_floors_ceilings_root;
     TreeNode<SceneEntity*> *m_entities_root;
+
     DeviceTexture *m_sky;
 
     __device__ bool intersect_walls(const Ray &ray, Intersection &intersection);

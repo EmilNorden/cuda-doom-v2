@@ -9,6 +9,7 @@
 #include "d_player.h"
 #include "wad/sprites.cuh"
 #include "r_defs.h"
+#include "rt_init_options.cuh"
 
 class Scene;
 namespace device {
@@ -21,7 +22,7 @@ namespace detail {
     extern wad::Wad *wad;
 }
 
-void RT_Init(char **wadfiles);
+void RT_Init(RayTracingInitOptions options);
 
 void RT_BuildScene();
 

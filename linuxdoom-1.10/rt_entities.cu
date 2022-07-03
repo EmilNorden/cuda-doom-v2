@@ -5,6 +5,7 @@
 #include "renderer/cuda_utils.cuh"
 #include "renderer/scene_entity.cuh"
 #include "r_main.h"
+#include "rt_material.cuh"
 
 namespace detail {
     std::array<std::optional<DeviceSprite>, NUMSPRITES> device_sprite_cache;
@@ -14,7 +15,7 @@ std::optional<DeviceSprite> RT_GetDeviceSprite(spritenum_t sprite);
 
 SceneEntity *RT_CreateMapThing(mobjtype_t type, mobj_t *obj) {
     auto info = &mobjinfo[type];
-    if(info->flags & MF_NOSECTOR) {
+    if (info->flags & MF_NOSECTOR) {
         // Is invisible
         return nullptr;
     }
@@ -67,14 +68,14 @@ void RT_UpdateEntityPosition(mobj_t *obj) {
 }
 
 std::optional<DeviceSprite> RT_GetDeviceSprite(spritenum_t s) {
-    if(detail::device_sprite_cache[s].has_value()) {
+    if (detail::device_sprite_cache[s].has_value()) {
         return detail::device_sprite_cache[s];
     }
 
     auto sprite = detail::sprite_data->sprites()[s];
     std::vector<DeviceSpriteFrame> device_sprite_frames;
     for (auto &sprite_frame: sprite.frames) {
-        std::array<DeviceTexture *, 8> rotation_textures{};
+        std::array<DeviceMaterial, 8> rotation_materials{};
         std::array<glm::i16vec2, 8> texture_offsets{};
         if (sprite_frame.rotate) {
             for (int rot = 0; rot < 8; ++rot) {
@@ -88,11 +89,15 @@ std::optional<DeviceSprite> RT_GetDeviceSprite(spritenum_t s) {
 
                 if (sprite_frame.flip[rot]) {
                     auto flipped = wad::flip_picture(picture);
-                    rotation_textures[rot] = create_device_type<DeviceTexture>(flipped.pixels, flipped.width,
-                                                                               flipped.height);
+                    rotation_materials[rot] = RT_GetMaterial(sprite_lump_name,
+                                                             create_device_type<DeviceTexture>(flipped.pixels,
+                                                                                               flipped.width,
+                                                                                               flipped.height));
                 } else {
-                    rotation_textures[rot] = create_device_type<DeviceTexture>(picture.pixels, picture.width,
-                                                                               picture.height);
+                    rotation_materials[rot] = RT_GetMaterial(sprite_lump_name,
+                                                             create_device_type<DeviceTexture>(picture.pixels,
+                                                                                               picture.width,
+                                                                                               picture.height));
                 }
             }
         } else {
@@ -103,14 +108,16 @@ std::optional<DeviceSprite> RT_GetDeviceSprite(spritenum_t s) {
             const auto &picture = detail::graphics_data->get_sprite(sprite_lump_name);
 
             for (int rot = 0; rot < 8; ++rot) {
-                rotation_textures[rot] = create_device_type<DeviceTexture>(picture.pixels, picture.width,
-                                                                           picture.height);
+                rotation_materials[rot] = RT_GetMaterial(sprite_lump_name,
+                                                         create_device_type<DeviceTexture>(picture.pixels,
+                                                                                           picture.width,
+                                                                                           picture.height));
                 texture_offsets[rot] = glm::i16vec2(picture.left_offset, picture.top_offset);
             }
         }
 
 
-        device_sprite_frames.emplace_back(rotation_textures, texture_offsets);
+        device_sprite_frames.emplace_back(rotation_materials, texture_offsets);
     }
 
     DeviceSprite device_sprite(device_sprite_frames);

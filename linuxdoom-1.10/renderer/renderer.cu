@@ -74,64 +74,62 @@ trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, int depth, std:
     }
 
     Intersection intersection;
-    std::uint8_t palette_index;
     if (scene->intersect(ray, intersection)) {
 
-        palette_index = intersection.texture->sample({intersection.u, intersection.v});
+        //return intersection.world_normal;
+        auto palette_index = intersection.material->sample_diffuse({intersection.u, intersection.v});
+
+        auto diffuse = glm::vec3{
+                palette[palette_index * 3] / 255.0f,
+                palette[(palette_index * 3) + 1] / 255.0f,
+                palette[(palette_index * 3) + 2] / 255.0f,
+        };
+
+        glm::vec3 incoming_light{0.25f};
+
+        auto intersection_point = ray.origin() + (ray.direction() * intersection.distance);
+        for(int i = 0; i < scene->m_emissive_entities_count; ++i) {
+            auto& light = scene->m_emissive_entities[i];
+            auto light_material = light->sprite.get_material(light->frame, light->rotation);
+            if(light_material->emission().x == 0.0f && light_material->emission().y == 0.0f && light_material->emission().z == 0.0f) {
+                continue;
+            }
+            auto& light_pos = light->position;
+            auto light_vector = light_pos - intersection_point;
+            auto light_distance = glm::length(light_vector);
+            auto light_direction = glm::normalize(light_vector);
+
+            if(glm::dot(ray.direction(), intersection.world_normal) > 0.0f) {
+                intersection.world_normal *= -1.0f;
+            }
+
+            Intersection shadow_intersection;
+            Ray shadow_ray(intersection_point + (intersection.world_normal * 0.01f), light_direction);
+            if(scene->intersect(shadow_ray, shadow_intersection, light_distance - 0.05f)) {
+                continue;
+            }
+
+            incoming_light += glm::dot(intersection.world_normal, light_direction) * light_material->emission() * (1 / (light_distance*light_distance));
+        }
+
+        return (diffuse * incoming_light) + intersection.material->emission();
     } else {
         auto pitch = glm::half_pi<float>() - glm::asin(-ray.direction().y);
         auto yaw = fabs(std::atan2(ray.direction().x, ray.direction().z));
-        palette_index = scene->sky()->sample({yaw, pitch / glm::pi<float>()});
-    }
+        auto palette_index = scene->sky()->sample({yaw, pitch / glm::pi<float>()});
 
-    return {
-            palette[palette_index * 3] / 255.0f,
-            palette[(palette_index * 3) + 1] / 255.0f,
-            palette[(palette_index * 3) + 2] / 255.0f,
-    };
-
-    /*Square s(glm::vec3(0, 0, 0), glm::vec3(1000, 0, 0), glm::vec3(0, -100, 0), 0);
-
-    float f =0.0f;
-    float u = 0.0f;
-    float v = 0.0f;
-    if(intersects_wall(ray, s,f, u, v)) {
-        return {1,1,1};
-    }*/
-
-
-
-    // SceneEntity *entity = nullptr;
-    /*
-    if (scene->intersect(ray, intersection, &entity)) {
-
-
-        auto intersection_coordinate = ray.origin() + (ray.direction() * intersection.distance);
-        auto &material = entity->mesh()->material();
-        float w = 1.0f - intersection.u - intersection.v;
-
-        auto texcoord0 = entity->mesh()->texture_coordinates()[intersection.i0];
-        auto texcoord1 = entity->mesh()->texture_coordinates()[intersection.i1];
-        auto texcoord2 = entity->mesh()->texture_coordinates()[intersection.i2];
-
-        auto texture_uv = texcoord0 * w + texcoord1 * intersection.u + texcoord2 * intersection.v;
-
-        auto palette_index = material.sample_diffuse(texture_uv);
         return {
-                palette[(palette_index*3)] / 255.0f,
-                palette[(palette_index*3) + 1] / 255.0f,
-                palette[(palette_index*3) + 2] / 255.0f};
-    } else {
-        return {1,0,1};
+                palette[palette_index * 3] / 255.0f,
+                palette[(palette_index * 3) + 1] / 255.0f,
+                palette[(palette_index * 3) + 2] / 255.0f,
+        };
+
     }
-*/
-
-    return {1, 0, 1};
-
 }
 
 __global__ void
-cudaRender(float *g_odata, Camera *camera, Scene *scene, RandomGeneratorPool *random_pool, std::uint8_t *palette, int width, int height,
+cudaRender(float *g_odata, Camera *camera, Scene *scene, RandomGeneratorPool *random_pool, std::uint8_t *palette,
+           int width, int height,
            size_t sample) {
     constexpr int PathLength = 1;
 
@@ -165,7 +163,8 @@ cudaRender(float *g_odata, Camera *camera, Scene *scene, RandomGeneratorPool *ra
 
 }
 
-void Renderer::render(Camera *camera, Scene *scene, RandomGeneratorPool *random, std::uint8_t *palette, int width, int height, size_t sample) {
+void Renderer::render(Camera *camera, Scene *scene, RandomGeneratorPool *random, std::uint8_t *palette, int width,
+                      int height, size_t sample) {
     dim3 block(16, 16, 1);
     dim3 grid(std::ceil(width / (float) block.x), std::ceil(height / (float) block.y), 1);
     cudaRender<<<grid, block>>>((float *) m_cuda_render_buffer, camera, scene, random, palette, width,
@@ -179,6 +178,8 @@ void Renderer::render(Camera *camera, Scene *scene, RandomGeneratorPool *random,
     auto size_tex_data = sizeof(GLfloat) * width * height * 4;
     cuda_assert(cudaMemcpyToArray(texture_ptr, 0, 0, m_cuda_render_buffer, size_tex_data, cudaMemcpyDeviceToDevice));
     cuda_assert(cudaGraphicsUnmapResources(1, &m_cuda_tex_resource, 0));
+
+    cudaDeviceSynchronize();
 }
 
 Renderer::Renderer(GLuint gl_texture, int width, int height)

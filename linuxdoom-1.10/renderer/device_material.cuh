@@ -7,8 +7,12 @@ class DeviceTexture;
 
 class DeviceMaterial {
 public:
-    __host__ explicit DeviceMaterial(DeviceTexture *diffuse)
+    __host__ __device__ DeviceMaterial() : m_diffuse(nullptr), m_uv_scale(1.0f) {}
+
+    __host__ __device__ explicit DeviceMaterial(DeviceTexture *diffuse)
             : m_diffuse(diffuse), m_uv_scale(1.0f) {}
+
+    __device__ __host__ const DeviceTexture *diffuse_map() const { return m_diffuse; }
 
     __device__ __host__ void set_diffuse_map(DeviceTexture *texture) { m_diffuse = texture; }
 
@@ -36,7 +40,7 @@ public:
 
     __device__ __host__ void set_uv_scale(const glm::vec2 &value) { m_uv_scale = value; }
 
-    [[nodiscard]]  __device__ std::uint8_t sample_diffuse(const glm::vec2 &uv) const;
+    [[nodiscard]]  __device__ std::uint16_t sample_diffuse(const glm::vec2 &uv) const;
 
     /*[[nodiscard]] __device__ glm::vec3 sample_normal(const glm::vec2 &uv) const;
 

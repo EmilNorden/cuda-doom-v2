@@ -13,6 +13,7 @@
 #include "wad/wad.cuh"
 #include "wad/sprites.cuh"
 #include "p_spec.h"
+#include "rt_material.cuh"
 #include <glm/gtx/rotate_vector.hpp>
 
 // CUDA <-> OpenGL interop
@@ -48,10 +49,10 @@ void RT_ApplyPendingEntities();
 
 void RT_SwapRemoveEntity(std::vector<SceneEntity *> &collection, SceneEntity *entity_to_remove);
 
-void RT_InitGraphics(char **wadfiles) {
+void RT_InitGraphics(RayTracingInitOptions options) {
     std::vector<std::filesystem::path> paths;
-    for (; *wadfiles; wadfiles++) {
-        paths.emplace_back(*wadfiles);
+    for (; *options.wadfiles; options.wadfiles++) {
+        paths.emplace_back(*options.wadfiles);
     }
 
     detail::wad = new wad::Wad(paths);
@@ -60,7 +61,7 @@ void RT_InitGraphics(char **wadfiles) {
 }
 
 
-void RT_Init(char **wadfiles) {
+void RT_Init(RayTracingInitOptions options) {
 
     print_cuda_device_info();
     init_gl_buffers();
@@ -96,7 +97,8 @@ void RT_Init(char **wadfiles) {
     device::scene = create_device_type<Scene>(walls, fc, mt, nullptr);
 
     RT_InitGl();
-    RT_InitGraphics(wadfiles);
+    RT_InitGraphics(options);
+    RT_InitMaterials(options);
 }
 
 
@@ -259,6 +261,13 @@ void RT_ApplyPendingEntities() {
 
     detail::entities.insert(detail::entities.end(), detail::pending_attach_entities.begin(),
                             detail::pending_attach_entities.end());
+
+    for(auto &entity : detail::pending_attach_entities) {
+        if(entity->sprite.has_emissive_frames()) {
+            device::scene->add_light(entity);
+        }
+    }
+
     detail::pending_attach_entities.clear();
 
 
@@ -299,9 +308,9 @@ void RT_VerticalDoorChanged(sector_t *sector) {
         wall->top_left.y = RT_FixedToFloating(door->topheight);
         wall->vertical_len = door_total_height;
         wall->vertical_vec = {0.0f, -1.0f, 0.0f};
-        wall->uv_scale.y = (wall->vertical_len / wall->texture->height()) / wall->vertical_len;
+        wall->uv_scale.y = (wall->vertical_len / wall->material.diffuse_map()->height()) / wall->vertical_len;
         if(wall->lower_unpegged) {
-            wall->uv_offset = wall->texture->height() - door_total_height;
+            wall->uv_offset = wall->material.diffuse_map()->height() - door_total_height;
         }
 
     }
@@ -357,21 +366,21 @@ void RT_SectorFloorHeightChanged(sector_t *sector) {
 
         wall.wall->vertical_len = glm::abs(wall.adjacent_floor_height - floor_height);
         wall.wall->vertical_vec = {0, -1, 0};
-        wall.wall->uv_scale.y = ( wall.wall->vertical_len /  wall.wall->texture->height()) /  wall.wall->vertical_len;
+        wall.wall->uv_scale.y = ( wall.wall->vertical_len /  wall.wall->material.diffuse_map()->height()) /  wall.wall->vertical_len;
     }
 
     for(auto wall : movable_sector.adjacent_bottom_walls) {
         wall.wall->top_left.y = glm::max(wall.adjacent_floor_height, floor_height);
         wall.wall->vertical_len = glm::length(wall.adjacent_floor_height - floor_height);
         wall.wall->vertical_vec = {0, -1, 0};
-        wall.wall->uv_scale.y = ( wall.wall->vertical_len /  wall.wall->texture->height()) /  wall.wall->vertical_len;
+        wall.wall->uv_scale.y = ( wall.wall->vertical_len /  wall.wall->material.diffuse_map()->height()) /  wall.wall->vertical_len;
     }
 
 
     for(auto wall: movable_sector.middle_walls) {
         wall->vertical_len = wall->top_left.y - floor_height;
         wall->vertical_vec = {0.0f, -1.0f, 0.0f};
-        wall->uv_scale.y = (wall->vertical_len / wall->texture->height()) / wall->vertical_len;
+        wall->uv_scale.y = (wall->vertical_len / wall->material.diffuse_map()->height()) / wall->vertical_len;
     }
 
     for(auto floor : movable_sector.floor) {

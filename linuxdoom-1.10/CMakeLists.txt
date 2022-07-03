@@ -125,12 +125,17 @@ add_library(doom_lib
         r_things.h
         rt_entities.cu
         rt_entities.cuh
+        rt_init_options.cuh
+        rt_material.cu
+        rt_material.cuh
         rt_raytracing_opengl.cu
         rt_raytracing_opengl.cuh
         rt_raytracing_scene.cu
         rt_raytracing_scene.cuh
         rt_raytracing.cu
         rt_raytracing.cuh
+        rt_texture.cu
+        rt_texture.cuh
         s_sound.cpp
         s_sound.h
         sounds.cpp
@@ -189,7 +194,8 @@ target_include_directories(doom_lib SYSTEM PRIVATE
         ${OPENGL_INCLUDE_DIR}
         ${FREEIMAGE_INCLUDE_DIRS}
         ${SDL2_INCLUDE_DIRS}
-        ${SDL2_MIXER_INCLUDE_DIRS})
+        ${SDL2_MIXER_INCLUDE_DIRS}
+        ${doom_SOURCE_DIR}/external)
 
 set_target_properties(
         doom_lib

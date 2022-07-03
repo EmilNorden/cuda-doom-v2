@@ -11,6 +11,7 @@
 #include "rt_raytracing_scene.cuh"
 #include "geometry/polygon.h"
 #include "geometry/triangulation.h"
+#include "rt_material.cuh"
 #include <glm/glm.hpp>
 #include <vector>
 #include <algorithm>
@@ -74,6 +75,10 @@ void create_mesh_from_polygon(
         sector_t *sector,
         SceneData &scene_data,
         geometry::Polygon &polygon);
+
+DeviceMaterial get_device_material(short texture_number,
+                                   wad::Wad &wad,
+                                   wad::GraphicsData &graphics_data);
 
 DeviceTexture *get_device_texture(short texture_number,
                                   wad::Wad &wad,
@@ -452,18 +457,18 @@ Square *create_main_wall(short texture_number, wad::Wad &wad, wad::GraphicsData 
     auto bottom_right = glm::vec3(end_x, RT_FixedToFloating(floor_height), end_y);
     auto top_right = glm::vec3(end_x, RT_FixedToFloating(ceiling_height), end_y);
 
-    auto texture = get_device_texture(texture_number, wad, graphics_data);
+    auto material = get_device_material(texture_number, wad, graphics_data);
 
     auto horizontal_len = glm::length(top_right - top_left);
     auto vertical_len = glm::length(bottom_left - top_left);
-    auto uv_scale = glm::vec2(static_cast<float>(glm::length(top_right - top_left) / texture->width()),
-                              static_cast<float>(glm::length(bottom_left - top_left) / texture->height()));
+    auto uv_scale = glm::vec2(static_cast<float>(glm::length(top_right - top_left) / material.diffuse_map()->width()),
+                              static_cast<float>(glm::length(bottom_left - top_left) / material.diffuse_map()->height()));
     uv_scale /= glm::vec2(horizontal_len, vertical_len);
 
-    auto square = create_device_type<Square>(top_left, top_right - top_left, bottom_left - top_left, uv_scale, texture);
+    auto square = create_device_type<Square>(top_left, top_right - top_left, bottom_left - top_left, uv_scale, material);
 
     if (line_flags & ML_DONTPEGBOTTOM) {
-        square->uv_offset = texture->height() - vertical_len;
+        square->uv_offset = material.diffuse_map()->height() - vertical_len;
         square->texture_wrapping = false;
         square->lower_unpegged = true;
     }
@@ -498,17 +503,17 @@ Square *create_sector_adjacent_wall(short texture_number,
     auto bottom_right = glm::vec3(end_x, lower_height, end_y);
     auto top_right = glm::vec3(end_x, higher_height, end_y);
 
-    auto texture = get_device_texture(texture_number, wad, graphics_data);
+    auto material = get_device_material(texture_number, wad, graphics_data);
 
     auto horizontal_len = glm::length(top_right - top_left);
     auto vertical_len = glm::length(bottom_left - top_left);
-    auto uv_scale = glm::vec2(static_cast<float>(glm::length(top_right - top_left) / texture->width()),
-                              static_cast<float>(glm::length(bottom_left - top_left) / texture->height()));
+    auto uv_scale = glm::vec2(static_cast<float>(glm::length(top_right - top_left) / material.diffuse_map()->width()),
+                              static_cast<float>(glm::length(bottom_left - top_left) / material.diffuse_map()->height()));
     uv_scale /= glm::vec2(horizontal_len, vertical_len);
 
 
     return create_device_type<Square>(top_left, top_right - top_left, bottom_left - top_left, uv_scale,
-                                      texture);
+                                      material);
 }
 
 void create_mesh_from_polygon(
@@ -534,7 +539,7 @@ void create_mesh_from_polygon(
                 glm::vec3(tri.v0().x, floor_height, tri.v0().y),
                 glm::vec3(tri.v1().x, floor_height, tri.v1().y),
                 glm::vec3(tri.v2().x, floor_height, tri.v2().y),
-                floor_texture));
+                DeviceMaterial(floor_texture)));
     }
 
     auto &sector_geometry = scene_data.sector_geometry[sector];
@@ -553,13 +558,22 @@ void create_mesh_from_polygon(
                     glm::vec3(tri.v0().x, ceiling_height, tri.v0().y),
                     glm::vec3(tri.v1().x, ceiling_height, tri.v1().y),
                     glm::vec3(tri.v2().x, ceiling_height, tri.v2().y),
-                    ceiling_texture));
+                    DeviceMaterial(ceiling_texture)));
         }
 
         sector_geometry.ceiling.insert(sector_geometry.ceiling.end(), ceiling_triangles.begin(),
                                        ceiling_triangles.end());
         scene_data.triangles.insert(scene_data.triangles.end(), ceiling_triangles.begin(), ceiling_triangles.end());
     }
+}
+
+DeviceMaterial get_device_material(short texture_number,
+                                   wad::Wad &wad,
+                                   wad::GraphicsData &graphics_data) {
+    auto texture = get_device_texture(texture_number, wad, graphics_data);
+    const auto &tex = graphics_data.get_texture(texture_number);
+
+    return RT_GetMaterial(tex.name(), texture);
 }
 
 DeviceTexture *get_device_texture(short texture_number,
@@ -604,16 +618,16 @@ DeviceTexture *create_device_texture_from_flat(intptr_t lump_number) {
 }
 
 void RT_ChangeSideTopTexture(side_t *side, int texture_num) {
-    detail::sidedef_to_wall_lookup[side].top->texture = get_device_texture(texture_num, *detail::wad,
-                                                                           *detail::graphics_data);
+    detail::sidedef_to_wall_lookup[side].top->material = DeviceMaterial(get_device_texture(texture_num, *detail::wad,
+                                                                           *detail::graphics_data));
 }
 
 void RT_ChangeSideMidTexture(side_t *side, int texture_num) {
-    detail::sidedef_to_wall_lookup[side].middle->texture = get_device_texture(texture_num, *detail::wad,
-                                                                              *detail::graphics_data);
+    detail::sidedef_to_wall_lookup[side].middle->material = DeviceMaterial(get_device_texture(texture_num, *detail::wad,
+                                                                              *detail::graphics_data));
 }
 
 void RT_ChangeSideBottomTexture(side_t *side, int texture_num) {
-    detail::sidedef_to_wall_lookup[side].bottom->texture = get_device_texture(texture_num, *detail::wad,
-                                                                              *detail::graphics_data);
+    detail::sidedef_to_wall_lookup[side].bottom->material = DeviceMaterial(get_device_texture(texture_num, *detail::wad,
+                                                                              *detail::graphics_data));
 }
