@@ -123,6 +123,8 @@ add_library(doom_lib
         r_state.h
         r_things.cpp
         r_things.h
+        rt_dizzy_effect.cu
+        rt_dizzy_effect.cuh
         rt_entities.cu
         rt_entities.cuh
         rt_init_options.cuh

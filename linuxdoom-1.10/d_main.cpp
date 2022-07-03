@@ -458,7 +458,9 @@ void D_Display(void) {
     // draw the view directly
     if (gamestate == GS_LEVEL && !automapactive && gametic) {
         if (RT_IsEnabled()) {
-            RT_RenderSample();
+            for(int i = 0; i < 1; ++i) {
+                RT_RenderSample();
+            }
         } else {
             R_RenderPlayerView(&players[displayplayer]);
         }

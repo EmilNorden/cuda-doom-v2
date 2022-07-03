@@ -14,7 +14,6 @@
 #include "wad/sprites.cuh"
 #include "p_spec.h"
 #include "rt_material.cuh"
-#include "rt_entities.cuh"
 #include <glm/gtx/rotate_vector.hpp>
 
 // CUDA <-> OpenGL interop
@@ -32,7 +31,7 @@ namespace detail {
     wad::SpriteData *sprite_data;
     wad::Wad *wad;
     size_t current_sample;
-    std::unordered_map<sector_t*, SectorGeometry> sector_geometry;
+    std::unordered_map<sector_t *, SectorGeometry> sector_geometry;
 }
 
 
@@ -254,103 +253,108 @@ void RT_DetachFromScene(SceneEntity *entity) {
 
 void RT_VerticalDoorChanged(sector_t *sector) {
     auto it = detail::sector_geometry.find(sector);
-    if(it == detail::sector_geometry.end()) {
+    if (it == detail::sector_geometry.end()) {
         return;
     }
 
-    auto& movable_sector = it->second;
-    auto door = (vldoor_t*)sector->specialdata;
+    auto &movable_sector = it->second;
+    auto door = (vldoor_t *) sector->specialdata;
 
     auto ceiling_height = RT_FixedToFloating(sector->ceilingheight);
     auto door_total_height = RT_FixedToFloating(door->topheight) - RT_FixedToFloating(sector->floorheight);
 
     // Actual door
-    for(auto wall : movable_sector.top_walls) {
+    for (auto wall: movable_sector.top_walls) {
         wall.wall->vertical_len = wall.adjacent_ceiling_height - ceiling_height;
-        wall.wall->uv_offset = ceiling_height - RT_FixedToFloating(sector->floorheight); // door_total_height - (wall.adjacent_ceiling_height - ceiling_height);
+        wall.wall->uv_offset = ceiling_height - RT_FixedToFloating(
+                sector->floorheight); // door_total_height - (wall.adjacent_ceiling_height - ceiling_height);
     }
 
     // Side walls, ie door frame.
-    for(auto wall : movable_sector.middle_walls) {
+    for (auto wall: movable_sector.middle_walls) {
         wall->top_left.y = RT_FixedToFloating(door->topheight);
         wall->vertical_len = door_total_height;
         wall->vertical_vec = {0.0f, -1.0f, 0.0f};
         wall->uv_scale.y = (wall->vertical_len / wall->material.diffuse_map()->height()) / wall->vertical_len;
-        if(wall->lower_unpegged) {
+        if (wall->lower_unpegged) {
             wall->uv_offset = wall->material.diffuse_map()->height() - door_total_height;
         }
 
     }
 
-    for(auto ceiling : movable_sector.ceiling) {
+    for (auto ceiling: movable_sector.ceiling) {
         ceiling->v0.y = ceiling->v1.y = ceiling->v2.y = ceiling_height;
     }
 }
 
 void RT_CeilingChanged(sector_t *sector) {
     auto it = detail::sector_geometry.find(sector);
-    if(it == detail::sector_geometry.end()) {
+    if (it == detail::sector_geometry.end()) {
         return;
     }
 
-    auto& movable_sector = it->second;
-    auto ceiling = (ceiling_t*)sector->specialdata;
+    auto &movable_sector = it->second;
+    auto ceiling = (ceiling_t *) sector->specialdata;
     auto ceiling_height = RT_FixedToFloating(sector->ceilingheight);
 
-    for(auto wall : movable_sector.top_walls) {
+    for (auto wall: movable_sector.top_walls) {
         wall.wall->top_left.y = glm::max(wall.adjacent_ceiling_height, ceiling_height);
         wall.wall->vertical_len = glm::abs(wall.adjacent_ceiling_height - ceiling_height);
-        wall.wall->uv_offset = glm::abs(ceiling_height - RT_FixedToFloating(sector->floorheight)); // door_total_height - (wall.adjacent_ceiling_height - ceiling_height);
+        wall.wall->uv_offset = glm::abs(ceiling_height - RT_FixedToFloating(
+                sector->floorheight)); // door_total_height - (wall.adjacent_ceiling_height - ceiling_height);
         // Dirty hack. Not sure if it'll work for all cases, but it certainly helps in map 2.
-        if(wall.adjacent_ceiling_height < ceiling_height) {
+        if (wall.adjacent_ceiling_height < ceiling_height) {
             wall.wall->uv_offset -= glm::abs(wall.adjacent_ceiling_height - wall.wall->top_left.y) * 2;
         }
     }
 
-    for(auto wall : movable_sector.adjacent_top_walls) {
+    for (auto wall: movable_sector.adjacent_top_walls) {
         wall.wall->top_left.y = RT_FixedToFloating(ceiling->topheight);
         wall.wall->vertical_len = 100;
-        wall.wall->uv_offset = ceiling_height - RT_FixedToFloating(sector->floorheight); // door_total_height - (wall.adjacent_ceiling_height - ceiling_height);
+        wall.wall->uv_offset = ceiling_height - RT_FixedToFloating(
+                sector->floorheight); // door_total_height - (wall.adjacent_ceiling_height - ceiling_height);
     }
 
 
-    for(auto ceiling_tri: movable_sector.ceiling) {
+    for (auto ceiling_tri: movable_sector.ceiling) {
         ceiling_tri->v0.y = ceiling_tri->v1.y = ceiling_tri->v2.y = ceiling_height;
     }
 }
 
 void RT_SectorFloorHeightChanged(sector_t *sector) {
     auto it = detail::sector_geometry.find(sector);
-    if(it == detail::sector_geometry.end()) {
+    if (it == detail::sector_geometry.end()) {
         return;
     }
 
-    auto& movable_sector = it->second;
+    auto &movable_sector = it->second;
 
     auto floor_height = RT_FixedToFloating(sector->floorheight);
-    for(auto wall : movable_sector.bottom_walls) {
+    for (auto wall: movable_sector.bottom_walls) {
         wall.wall->top_left.y = floor_height;
 
         wall.wall->vertical_len = glm::abs(wall.adjacent_floor_height - floor_height);
         wall.wall->vertical_vec = {0, -1, 0};
-        wall.wall->uv_scale.y = ( wall.wall->vertical_len /  wall.wall->material.diffuse_map()->height()) /  wall.wall->vertical_len;
+        wall.wall->uv_scale.y =
+                (wall.wall->vertical_len / wall.wall->material.diffuse_map()->height()) / wall.wall->vertical_len;
     }
 
-    for(auto wall : movable_sector.adjacent_bottom_walls) {
+    for (auto wall: movable_sector.adjacent_bottom_walls) {
         wall.wall->top_left.y = glm::max(wall.adjacent_floor_height, floor_height);
         wall.wall->vertical_len = glm::length(wall.adjacent_floor_height - floor_height);
         wall.wall->vertical_vec = {0, -1, 0};
-        wall.wall->uv_scale.y = ( wall.wall->vertical_len /  wall.wall->material.diffuse_map()->height()) /  wall.wall->vertical_len;
+        wall.wall->uv_scale.y =
+                (wall.wall->vertical_len / wall.wall->material.diffuse_map()->height()) / wall.wall->vertical_len;
     }
 
 
-    for(auto wall: movable_sector.middle_walls) {
+    for (auto wall: movable_sector.middle_walls) {
         wall->vertical_len = wall->top_left.y - floor_height;
         wall->vertical_vec = {0.0f, -1.0f, 0.0f};
         wall->uv_scale.y = (wall->vertical_len / wall->material.diffuse_map()->height()) / wall->vertical_len;
     }
 
-    for(auto floor : movable_sector.floor) {
+    for (auto floor: movable_sector.floor) {
         floor->v0.y = floor_height;
         floor->v1.y = floor_height;
         floor->v2.y = floor_height;

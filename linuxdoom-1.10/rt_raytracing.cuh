@@ -12,7 +12,9 @@
 #include "rt_init_options.cuh"
 
 class Scene;
+class Camera;
 namespace device {
+    extern Camera *camera;
     extern Scene *scene;
     extern std::uint8_t *palette;
 }

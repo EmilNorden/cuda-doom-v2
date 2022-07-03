@@ -69,6 +69,7 @@ static const char
 
 
 #include "g_game.h"
+#include "rt_dizzy_effect.cuh"
 
 extern unsigned char *pixels[SCREEN_COUNT];
 
@@ -688,6 +689,7 @@ void G_Ticker(void) {
             ST_Ticker();
             AM_Ticker();
             HU_Ticker();
+            RT_DizzyTick();
             break;
 
         case GS_INTERMISSION:
