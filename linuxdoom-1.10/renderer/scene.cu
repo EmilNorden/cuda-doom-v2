@@ -372,7 +372,7 @@ intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersecti
             intersection.u = u;
             intersection.v = v;
             intersection.material = material;
-            intersection.world_normal = glm::vec3(0, 1, 0); // TODO Dirty workaround for now
+            intersection.world_normal = ray.direction() * -1.0f; // TODO Dirty workaround for now
             intersection.distance = hit_distance;
             success = true;
         }
@@ -437,34 +437,6 @@ __device__ bool Scene::intersect(const Ray &ray, Intersection &intersection, flo
     auto intersects_entities = intersect_entities(ray, intersection);
     //return intersects_floors_or_ceilings;
     return intersects_walls || intersects_floors_or_ceilings || intersects_entities;
-}
-
-void Scene::rebuild_entities(const std::vector<SceneEntity *> &scene_entities) {
-    // TODO: NEED TO FREE EXISTING NODES OR ELSE LEAK MEMORY
-    std::function<void(std::vector<SceneEntity *> &, Axis axis)> entity_sort_callback = [](
-            std::vector<SceneEntity *> &items,
-            Axis axis) {
-        std::sort(items.begin(), items.end(), [&](const SceneEntity *a, const SceneEntity *b) {
-            return a->position[static_cast<int>(axis)] < b->position[static_cast<int>(axis)];
-        });
-    };
-
-    std::function<glm::vec3(SceneEntity *median)> entity_median_callback = [](SceneEntity *median) {
-        return median->position;
-    };
-
-    std::function<SplitComparison(SceneEntity *item, Axis axis, float splitting_value)> entity_split_callback = [](
-            const SceneEntity *entity, Axis axis, float split_value) {
-        return Scene::scene_entity_axis_comparison(entity, axis, split_value);
-    };
-
-    auto scene_entities_copy = scene_entities;
-    bool valid_axes[3] = {true, false, true};
-    printf("Rebuilding %zu entities!\n", scene_entities.size());
-    build_node(*m_entities_root, scene_entities_copy, Axis::X, valid_axes, 2000,
-               entity_sort_callback,
-               entity_median_callback,
-               entity_split_callback);
 }
 
 void Scene::add_light(SceneEntity *entity) {
@@ -551,7 +523,7 @@ void Scene::add_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node, Axis 
 
 void Scene::remove_entity(SceneEntity *entity) {
     if(entity->sprite.has_emissive_frames()) {
-        remove_entity(entity);
+        remove_light(entity);
     }
     remove_entity(entity, *m_entities_root);
 }

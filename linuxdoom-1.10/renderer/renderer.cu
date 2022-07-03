@@ -120,7 +120,7 @@ trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, int depth, std:
             diffuse = (1.0f - intersection.material->reflectivity()) * diffuse + (trace_ray<N>(reflected_ray, scene, random, depth - 1, palette) * intersection.material->reflectivity());
         }
 
-        return (diffuse * incoming_light) + intersection.material->emission();
+        return (diffuse * incoming_light);
     } else {
         auto pitch = glm::half_pi<float>() - glm::asin(-ray.direction().y);
         auto yaw = fabs(std::atan2(ray.direction().x, ray.direction().z));
