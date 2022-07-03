@@ -11,7 +11,7 @@ enum class DizzyState {
 
 DizzyState current_state = DizzyState::Idle;
 int dizzy_timestamp = 0;
-constexpr float DizzySize = 0.2f;
+constexpr float DizzySize = 0.3f;
 
 void RT_PlayerDamaged(int damage) {
     printf("I took %d damage\n", damage);
@@ -23,7 +23,7 @@ void RT_PlayerDamaged(int damage) {
     }
 
     device::camera->set_blur_radius(DizzySize);
-    device::camera->set_focal_length(100.0f);
+    device::camera->set_focal_length(10.0f);
     device::camera->update();
 
     current_state = DizzyState::Full;
