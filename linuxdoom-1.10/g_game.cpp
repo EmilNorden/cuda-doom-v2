@@ -458,6 +458,8 @@ void G_DoLoadLevel(void) {
         memset(players[i].frags, 0, sizeof(players[i].frags));
     }
 
+    ST_SetDefaultPalette();
+
     P_SetupLevel(gameepisode, gamemap, 0, gameskill);
     // R_BuildGeometry();
     displayplayer = consoleplayer;        // view the guy you are playing

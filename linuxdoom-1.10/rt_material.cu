@@ -60,6 +60,17 @@ void RT_InitMaterials(const RayTracingInitOptions &options) {
                 texture_names = toml::find<std::vector<std::string>>(mat, "textures");
             }
 
+            if(mat.contains("sprite_group")) {
+                auto texture_group = toml::find<std::string>(mat, "sprite_group");
+                for(auto &sprite_name : detail::sprite_data->sprite_names()){
+                    if (sprite_name.rfind(texture_group, 0) != 0) {
+                        continue;
+                    }
+
+                    texture_names.push_back(sprite_name);
+                }
+            }
+
             if (texture_names.empty()) {
                 continue;
             }

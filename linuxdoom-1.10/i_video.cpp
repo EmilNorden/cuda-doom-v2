@@ -587,7 +587,6 @@ void UploadNewPalette(Colormap cmap, byte *palette)
 // I_SetPalette
 //
 void I_SetPalette(byte *palette) {
-    int ff = 34;
     V_UpdatePalette(palette);
     RT_UpdatePalette(palette);
     /*

@@ -109,6 +109,7 @@ trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, int depth, std:
                 continue;
             }
 
+            light_distance /= 2.0f;
             incoming_light += glm::dot(intersection.world_normal, light_direction) * light_material->emission() * (1 / (light_distance*light_distance));
         }
 

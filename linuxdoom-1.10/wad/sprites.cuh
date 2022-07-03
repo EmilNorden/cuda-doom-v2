@@ -43,6 +43,8 @@ namespace wad {
                         continue;
                     }
 
+                    m_sprite_names.push_back(lump_name);
+
                     auto lump = wad.get_lump(lump_number);
 
                     auto frame_number = lump.name[4] - 'A';
@@ -78,10 +80,12 @@ namespace wad {
         }
 
         [[nodiscard]] const std::vector<Sprite>& sprites() const { return m_sprites; }
+        [[nodiscard]] const std::vector<std::string> &sprite_names() const { return m_sprite_names; }
         [[nodiscard]] int sprite_lumps_start() const { return m_sprite_lumps_start; }
 
     private:
         std::vector<Sprite> m_sprites;
+        std::vector<std::string> m_sprite_names;
         int m_sprite_lumps_start;
 
         void

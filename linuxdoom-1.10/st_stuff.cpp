@@ -507,9 +507,9 @@ void ST_refreshBackground(void) {
 
         // TODO: This could be rewritten to not do the CopyRect calls like so:
 
-          /*V_DrawPatch(ST_X, ST_Y, FG, sbar);
-            if (netgame)
-                V_DrawPatch(ST_FX, ST_Y, FG, faceback);
+        /*V_DrawPatch(ST_X, ST_Y, FG, sbar);
+          if (netgame)
+              V_DrawPatch(ST_FX, ST_Y, FG, faceback);
 */
 
 
@@ -939,6 +939,14 @@ void ST_Ticker(void) {
 
 static int st_palette = 0;
 
+void ST_SetDefaultPalette() {
+
+    st_palette = 0;
+    auto pal = (byte *) W_CacheLumpNum(lu_palette, PU_CACHE) + st_palette * 768;
+    I_SetPalette(pal);
+
+}
+
 void ST_doPaletteStuff(void) {
 
     int palette;
@@ -1102,21 +1110,21 @@ void ST_loadGraphics(void) {
     for (i = 0; i < ST_NUMPAINFACES; i++) {
         for (j = 0; j < ST_NUMSTRAIGHTFACES; j++) {
             sprintf(namebuf, "STFST%d%d", i, j);
-            faces[facenum++] = (patch_t*)W_CacheLumpName(namebuf, PU_STATIC);
+            faces[facenum++] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
         }
         sprintf(namebuf, "STFTR%d0", i);    // turn right
-        faces[facenum++] = (patch_t*)W_CacheLumpName(namebuf, PU_STATIC);
+        faces[facenum++] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
         sprintf(namebuf, "STFTL%d0", i);    // turn left
-        faces[facenum++] = (patch_t*)W_CacheLumpName(namebuf, PU_STATIC);
+        faces[facenum++] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
         sprintf(namebuf, "STFOUCH%d", i);    // ouch!
-        faces[facenum++] = (patch_t*)W_CacheLumpName(namebuf, PU_STATIC);
+        faces[facenum++] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
         sprintf(namebuf, "STFEVL%d", i);    // evil grin ;)
-        faces[facenum++] = (patch_t*)W_CacheLumpName(namebuf, PU_STATIC);
+        faces[facenum++] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
         sprintf(namebuf, "STFKILL%d", i);    // pissed off
-        faces[facenum++] = (patch_t*)W_CacheLumpName(namebuf, PU_STATIC);
+        faces[facenum++] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
     }
-    faces[facenum++] = (patch_t*)W_CacheLumpName("STFGOD0", PU_STATIC);
-    faces[facenum++] = (patch_t*)W_CacheLumpName("STFDEAD0", PU_STATIC);
+    faces[facenum++] = (patch_t *) W_CacheLumpName("STFGOD0", PU_STATIC);
+    faces[facenum++] = (patch_t *) W_CacheLumpName("STFDEAD0", PU_STATIC);
 
 }
 
@@ -1367,7 +1375,7 @@ void ST_Stop(void) {
     if (st_stopped)
         return;
 
-    I_SetPalette((byte*)W_CacheLumpNum(lu_palette, PU_CACHE));
+    I_SetPalette((byte *) W_CacheLumpNum(lu_palette, PU_CACHE));
 
     st_stopped = true;
 }
