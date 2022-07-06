@@ -86,7 +86,8 @@ STlib_initNum
 void
 STlib_drawNum
         (st_number_t *n,
-         boolean refresh) {
+         boolean refresh,
+         boolean include_background) {
 
     int numdigits = n->width;
     int num = *n->num;
@@ -116,7 +117,9 @@ STlib_drawNum
     if (n->y - ST_Y < 0)
         I_Error("drawNum: n->y - ST_Y < 0");
 
-    V_CopyRect(x, n->y - ST_Y, BG, w * numdigits, h, x, n->y, FG);
+    if(include_background) {
+        V_CopyRect(x, n->y - ST_Y, BG, w * numdigits, h, x, n->y, FG);
+    }
 
     // if non-number, do not draw it
     if (num == 1994)
@@ -145,8 +148,9 @@ STlib_drawNum
 void
 STlib_updateNum
         (st_number_t *n,
-         boolean refresh) {
-    if (*n->on) STlib_drawNum(n, refresh);
+         boolean refresh,
+         boolean include_background) {
+    if (*n->on) STlib_drawNum(n, refresh, include_background);
 }
 
 

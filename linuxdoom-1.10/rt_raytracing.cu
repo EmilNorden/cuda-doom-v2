@@ -32,6 +32,7 @@ namespace detail {
     wad::Wad *wad;
     size_t current_sample;
     std::unordered_map<sector_t *, SectorGeometry> sector_geometry;
+    int current_frame_time = 0;
 }
 
 
@@ -82,12 +83,6 @@ void RT_Init(RayTracingInitOptions options) {
     device::random = create_device_type<RandomGeneratorPool>(2048 * 256, 682856);
     std::cout << "Done." << std::endl;
     cuda_assert(cudaMallocManaged(&device::palette, 768));
-
-//std::vector<Square> &walls, std::vector<Triangle> &floors_ceilings, std::vector<MapThing> &map_things
-    std::vector<Square *> walls;
-    std::vector<Triangle *> fc;
-    std::vector<SceneEntity *> mt;
-    device::scene = create_device_type<Scene>(walls, fc, mt, nullptr);
 
     RT_InitGl();
     RT_InitGraphics(options);
@@ -162,6 +157,9 @@ bool RT_IsEnabled() {
 }
 
 void RT_RenderSample() {
+    auto start_time = std::chrono::steady_clock::now();
+
+    device::scene->prefetch_entities();
 /*
     if(!detail::scene_entities_to_free.empty()) {
         for(auto entity : detail::scene_entities_to_free) {
@@ -180,6 +178,9 @@ void RT_RenderSample() {
             240,
             0);
     detail::current_sample++;
+
+    auto end_time = std::chrono::steady_clock::now();
+    detail::current_frame_time = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
 }
 
 void RT_Present() {
@@ -228,27 +229,6 @@ void RT_WindowChanged() {
     RT_InitGl();
     device::renderer = new Renderer(device::opengl_tex_cuda, 320, 240);
     printf("GL BUFFERS RECREATED\n");
-}
-
-void RT_AttachToScene(SceneEntity *entity) {
-    if (!entity) {
-        return;
-    }
-    //device::scene->add_entity(entity);
-
-    //detail::has_pending_entities = true;
-    //detail::pending_attach_entities.push_back(entity);
-    device::scene->add_entity(entity);
-}
-
-void RT_DetachFromScene(SceneEntity *entity) {
-    if (!entity) {
-        return;
-    }
-
-    //detail::has_pending_entities = true;
-    //detail::pending_detach_entities.push_back(entity);
-    device::scene->remove_entity(entity);
 }
 
 void RT_VerticalDoorChanged(sector_t *sector) {
@@ -359,4 +339,8 @@ void RT_SectorFloorHeightChanged(sector_t *sector) {
         floor->v1.y = floor_height;
         floor->v2.y = floor_height;
     }
+}
+
+int *RT_GetFrameTime() {
+    return &detail::current_frame_time;
 }

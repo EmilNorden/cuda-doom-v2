@@ -433,7 +433,7 @@ BuildSceneResult RT_BuildScene(wad::Wad &wad, wad::GraphicsData &graphics_data) 
     auto sky_texture = get_device_texture(skytexture, wad, graphics_data);
 
     return BuildSceneResult{
-            create_device_type<Scene>(scene_data.walls, scene_data.triangles, scene_data.entities, sky_texture),
+            create_device_type<Scene>(scene_data.walls, scene_data.triangles, sky_texture),
             scene_data.sector_geometry
     };
 }
@@ -560,6 +560,15 @@ void create_mesh_from_polygon(
     if (sector->ceilingpic != skyflatnum) {//sector.ceiling_texture != "F_SKY1") {
         auto ceiling_texture = get_device_texture_from_flat(sector->ceilingpic);
 
+        auto ceiling_lump_number = firstflat + sector->ceilingpic;
+        auto ceiling_name = lumpinfo[ceiling_lump_number].name;
+
+        name[8] = 0;
+        for(int i = 0; i < 8; ++i) {
+            name[i] = ceiling_name[i];
+        }
+        auto ceiling_material = RT_GetMaterial(name, ceiling_texture);
+
         auto ceiling_height = RT_FixedToFloating(sector->ceilingheight);
         std::vector<Triangle *> ceiling_triangles;
         ceiling_triangles.reserve(triangles_2d.size());
@@ -568,7 +577,7 @@ void create_mesh_from_polygon(
                     glm::vec3(tri.v0().x, ceiling_height, tri.v0().y),
                     glm::vec3(tri.v1().x, ceiling_height, tri.v1().y),
                     glm::vec3(tri.v2().x, ceiling_height, tri.v2().y),
-                    DeviceMaterial(ceiling_texture)));
+                    ceiling_material));
         }
 
         sector_geometry.ceiling.insert(sector_geometry.ceiling.end(), ceiling_triangles.begin(),

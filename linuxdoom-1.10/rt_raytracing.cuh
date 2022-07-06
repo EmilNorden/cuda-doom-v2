@@ -45,15 +45,13 @@ void RT_UpdateCameraFromPlayer(player_t *player);
 
 void RT_WindowChanged();
 
-void RT_AttachToScene(SceneEntity *entity);
-
-void RT_DetachFromScene(SceneEntity *entity);
-
 void RT_VerticalDoorChanged(sector_t *sector);
 
 void RT_CeilingChanged(sector_t *sector);
 
 void RT_SectorFloorHeightChanged(sector_t *sector);
+
+int *RT_GetFrameTime();
 
 inline float RT_FixedToFloating(int value) {
     return static_cast<float>(value) / 65536.0f;

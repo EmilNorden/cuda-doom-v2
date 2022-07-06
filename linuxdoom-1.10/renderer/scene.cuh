@@ -22,8 +22,6 @@ enum Axis {
     X, Y, Z
 };
 
-constexpr size_t EntityGroupSize = 1500;
-
 template<typename T>
 struct TreeNode {
     Axis splitting_axis;
@@ -41,25 +39,35 @@ enum class SplitComparison {
 
 class Scene {
 public:
-    Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceilings,
-          std::vector<SceneEntity *> &scene_entities, DeviceTexture *sky);
+    Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceilings, DeviceTexture *sky);
 
-    __device__ bool intersect(const Ray &ray, Intersection &intersection, float tmax = FLT_MAX);
+    __device__ bool intersect(const Ray &ray, Intersection &intersection, bool ignore_player, float tmax = FLT_MAX);
 
     [[nodiscard]] __device__ const DeviceTexture *sky() const { return m_sky; }
 
-    void rebuild_entities(const std::vector<SceneEntity *> &scene_entities);
+    DeviceFixedVector<SceneEntity *> m_emissive_entities;
+    DeviceFixedVector<Triangle *> m_emissive_floors_ceilings;
 
-    DeviceFixedVector<SceneEntity*> m_emissive_entities;
     /*SceneEntity **m_emissive_entities;
     size_t m_emissive_entities_count;*/
 
     void add_light(SceneEntity *entity);
+
     void remove_light(SceneEntity *entity);
 
     void add_entity(SceneEntity *entity);
 
-    void remove_entity(SceneEntity *entity);
+    void add_entities(const std::vector<SceneEntity *> &entities);
+
+    bool remove_entity(SceneEntity *entity);
+
+    void refresh_entity(SceneEntity *entity);
+
+    void prefetch_entities() {
+        for(int i = 0; i < m_entities_root->items.count(); ++i) {
+            cudaMemPrefetchAsync(m_entities_root->items[i], sizeof(SceneEntity), 0);
+        }
+    }
 
 private:
     TreeNode<Square *> *m_walls_root;
@@ -72,11 +80,11 @@ private:
 
     __device__ bool intersect_floors_and_ceilings(const Ray &ray, Intersection &intersection);
 
-    __device__ bool intersect_entities(const Ray &ray, Intersection &intersection);
+    __device__ bool intersect_entities(const Ray &ray, Intersection &intersection, bool ignore_player);
 
-    void add_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node, Axis splitting_axis);
+    void add_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node);
 
-    void remove_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node);
+    bool remove_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node);
 
     template<typename T>
     void build_node(TreeNode<T> &node, std::vector<T> &items, Axis current_axis, bool valid_axes[3], size_t size_limit,
@@ -86,6 +94,7 @@ private:
                                                         float splitting_value)> &split_callback) {
         if (items.size() < size_limit) {
             node.items = DeviceFixedVector<T>(items, size_limit);
+            node.splitting_axis = current_axis;
             node.left = nullptr;
             node.right = nullptr;
             return;

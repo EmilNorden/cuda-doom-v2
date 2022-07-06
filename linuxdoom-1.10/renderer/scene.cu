@@ -3,6 +3,10 @@
 #include "device_stack.cuh"
 #include <algorithm>
 
+
+constexpr size_t EntityGroupSize = 1500;
+constexpr bool entity_valid_axes[3] = {true, false, true};
+
 template<typename T>
 struct NodeSearchData {
     TreeNode<T> *node;
@@ -20,17 +24,22 @@ struct NodeSearchData {
     }
 };
 
-Scene::Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceilings,
-             std::vector<SceneEntity *> &scene_entities, DeviceTexture *sky)
+Scene::Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceilings, DeviceTexture *sky)
         : m_emissive_entities(200), m_sky(sky) {
     m_walls_root = create_device_type<TreeNode<Square *>>();
     m_floors_ceilings_root = create_device_type<TreeNode<Triangle *>>();
     m_entities_root = create_device_type<TreeNode<SceneEntity *>>();
-    //cudaMallocManaged(&m_emissive_entities, sizeof(SceneEntity *) * 200);
 
+    std::cout << "Building scene with " << walls.size() << " walls and" << floors_ceilings.size()
+              << " floor/ceiling triangles\n";
 
-    std::cout << "Building scene with " << walls.size() << " walls, " << floors_ceilings.size()
-              << " floor/ceiling triangles and " << scene_entities.size() << " entities\n";
+    std::vector<Triangle *> emissive_floors_ceilings;
+    for (auto triangle: floors_ceilings) {
+        if (triangle->material.has_emission()) {
+            emissive_floors_ceilings.push_back(triangle);
+        }
+    }
+    m_emissive_floors_ceilings.reset(emissive_floors_ceilings);
 
 
     bool valid_axes[3] = {true, false, true};
@@ -80,29 +89,6 @@ Scene::Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceili
                triangle_sort_callback,
                triangle_median_callback,
                triangle_split_callback);
-
-    std::function<void(std::vector<SceneEntity *> &, Axis axis)> entity_sort_callback = [](
-            std::vector<SceneEntity *> &items,
-            Axis axis) {
-        std::sort(items.begin(), items.end(), [&](const SceneEntity *a, const SceneEntity *b) {
-            return a->position[static_cast<int>(axis)] < b->position[static_cast<int>(axis)];
-        });
-    };
-
-    std::function<glm::vec3(SceneEntity *median)> entity_median_callback = [](SceneEntity *median) {
-        return median->position;
-    };
-
-    std::function<SplitComparison(SceneEntity *item, Axis axis, float splitting_value)> entity_split_callback = [](
-            const SceneEntity *entity, Axis axis, float split_value) {
-        return Scene::scene_entity_axis_comparison(entity, axis, split_value);
-    };
-
-    auto scene_entities_copy = scene_entities;
-    build_node(*m_entities_root, scene_entities_copy, Axis::X, valid_axes, EntityGroupSize,
-               entity_sort_callback,
-               entity_median_callback,
-               entity_split_callback);
 }
 
 // TODO: Keep this here until i decide wether to keep the templated version. It's a mess.
@@ -356,13 +342,18 @@ __device__ bool Scene::intersect_floors_and_ceilings(const Ray &ray, Intersectio
 }
 
 __device__ bool
-intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersection &intersection, float tmax) {
+intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersection &intersection, float tmax,
+                       bool ignore_player) {
     auto success = false;
     for (auto i = 0; i < node->items.count(); ++i) {
         float hit_distance = 0.0f;
         float u = 0.0f;
         float v = 0.0f;
         if (intersects_scene_entity(ray, node->items[i], hit_distance, u, v) && hit_distance < tmax) {
+            if (ignore_player && node->items[i]->is_player) {
+                continue;
+            }
+
             auto material = node->items[i]->sprite.get_material(node->items[i]->frame, node->items[i]->rotation);
 
             if (material->sample_diffuse({u, v}) > 0xFF) {
@@ -381,7 +372,7 @@ intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersecti
     return success;
 }
 
-__device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersection) {
+__device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersection, bool ignore_player) {
     constexpr int StackSize = 20;
 
     DeviceStack<StackSize, NodeSearchData<SceneEntity *>> nodes;
@@ -399,7 +390,7 @@ __device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersec
         auto tmax = current.tmax;
 
         if (is_leaf(node)) {
-            if (intersects_entity_node(ray, node, intersection, tmax)) {
+            if (intersects_entity_node(ray, node, intersection, tmax, ignore_player)) {
                 return true;
             }
         } else {
@@ -429,12 +420,12 @@ __device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersec
     return false;
 }
 
-__device__ bool Scene::intersect(const Ray &ray, Intersection &intersection, float tmax) {
+__device__ bool Scene::intersect(const Ray &ray, Intersection &intersection, bool ignore_player, float tmax) {
     intersection.distance = tmax;
 
     auto intersects_walls = intersect_walls(ray, intersection);
     auto intersects_floors_or_ceilings = intersect_floors_and_ceilings(ray, intersection);
-    auto intersects_entities = intersect_entities(ray, intersection);
+    auto intersects_entities = intersect_entities(ray, intersection, ignore_player);
     //return intersects_floors_or_ceilings;
     return intersects_walls || intersects_floors_or_ceilings || intersects_entities;
 }
@@ -451,15 +442,55 @@ void Scene::remove_light(SceneEntity *entity) {
     m_emissive_entities.remove(entity);
 }
 
-void Scene::add_entity(SceneEntity *entity) {
-    if(entity->sprite.has_emissive_frames()) {
-        add_light(entity);
+void Scene::add_entities(const std::vector<SceneEntity *> &entities) {
+    for (auto entity: entities) {
+        if (entity->sprite.has_emissive_frames()) {
+            add_light(entity);
+        }
     }
-    add_entity(entity, *m_entities_root, Axis::X);
+
+    std::function<void(std::vector<SceneEntity *> &, Axis axis)> entity_sort_callback = [](
+            std::vector<SceneEntity *> &items,
+            Axis axis) {
+        std::sort(items.begin(), items.end(), [&](const SceneEntity *a, const SceneEntity *b) {
+            return a->position[static_cast<int>(axis)] < b->position[static_cast<int>(axis)];
+        });
+    };
+
+    std::function<glm::vec3(SceneEntity *median)> entity_median_callback = [](SceneEntity *median) {
+        return median->position;
+    };
+
+    std::function<SplitComparison(SceneEntity *item, Axis axis, float splitting_value)> entity_split_callback = [](
+            const SceneEntity *entity, Axis axis, float split_value) {
+        return Scene::scene_entity_axis_comparison(entity, axis, split_value);
+    };
+
+    auto entities_copy = entities;
+    bool valid_axes[3] = {entity_valid_axes[0], entity_valid_axes[1], entity_valid_axes[2]};
+    build_node(*m_entities_root, entities_copy, Axis::X, valid_axes, EntityGroupSize,
+               entity_sort_callback,
+               entity_median_callback,
+               entity_split_callback);
 }
 
-void Scene::add_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node, Axis splitting_axis) {
-    bool valid_axes[3] = {true, false, true};
+void Scene::add_entity(SceneEntity *entity) {
+    if (entity->sprite.has_emissive_frames()) {
+        add_light(entity);
+    }
+    add_entity(entity, *m_entities_root);
+}
+
+void Scene::refresh_entity(SceneEntity *entity) {
+    if (remove_entity(entity, *m_entities_root)) {
+        // If we managed to remove it from the scene, we can safely add it again.
+        // If we didnt manage to remove it, it means it has already been removed (ie explosions or smoke puffs that live for a short time)
+        // Adding it again would mean we'd have frozen explosions around the map
+        add_entity(entity, *m_entities_root);
+    }
+}
+
+void Scene::add_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node) {
     if (node.items.data()) {
         if (!node.items.is_full()) {
             node.items.push_back(entity);
@@ -469,13 +500,13 @@ void Scene::add_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node, Axis 
 
         std::sort(node.items.data(), node.items.data() + node.items.count(),
                   [&](const SceneEntity *a, const SceneEntity *b) {
-                      return a->position[static_cast<int>(splitting_axis)] <
-                             b->position[static_cast<int>(splitting_axis)];
+                      return a->position[static_cast<int>(node.splitting_axis)] <
+                             b->position[static_cast<int>(node.splitting_axis)];
                   });
 
         auto half_size = node.items.count() / 2;
         auto median_point = node.items[half_size]->position;
-        auto splitting_value = median_point[static_cast<int>(splitting_axis)];
+        auto splitting_value = median_point[static_cast<int>(node.splitting_axis)];
 
         std::vector<SceneEntity *> left_side;
         std::vector<SceneEntity *> right_side;
@@ -484,7 +515,7 @@ void Scene::add_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node, Axis 
         right_side.reserve(half_size);
 
         for (int i = 0; i < node.items.count(); ++i) {
-            auto result = scene_entity_axis_comparison(node.items[i], splitting_axis, splitting_value);
+            auto result = scene_entity_axis_comparison(node.items[i], node.splitting_axis, splitting_value);
             if (result == SplitComparison::GreaterOrEqual || result == SplitComparison::Both) {
                 right_side.push_back(node.items[i]);
             }
@@ -493,59 +524,59 @@ void Scene::add_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node, Axis 
                 left_side.push_back(node.items[i]);
             }
         }
+
+
+        Axis next_axis = node.splitting_axis;
+        do {
+            next_axis = static_cast<Axis>((next_axis + 1) % 3);
+        } while (!entity_valid_axes[next_axis]);
+
         node.items.reset();
-        node.splitting_axis = splitting_axis;
         node.splitting_value = splitting_value;
         cuda_assert(cudaMallocManaged(&node.left, sizeof(TreeNode<SceneEntity *>)));
         cuda_assert(cudaMallocManaged(&node.right, sizeof(TreeNode<SceneEntity *>)));
-        node.left->items = DeviceFixedVector<SceneEntity*>(EntityGroupSize);
-        node.right->items = DeviceFixedVector<SceneEntity*>(EntityGroupSize);
+        node.left->items = DeviceFixedVector<SceneEntity *>(left_side, EntityGroupSize);
+        node.left->splitting_axis = next_axis;
+        node.right->items = DeviceFixedVector<SceneEntity *>(right_side, EntityGroupSize);
+        node.right->splitting_axis = next_axis;
     }
-
-    do {
-        splitting_axis = static_cast<Axis>((splitting_axis + 1) % 3);
-    } while (!valid_axes[splitting_axis]);
 
     auto axis_comparison = scene_entity_axis_comparison(entity, node.splitting_axis, node.splitting_value);
     switch (axis_comparison) {
         case SplitComparison::GreaterOrEqual:
-            add_entity(entity, *node.right, splitting_axis);
+            add_entity(entity, *node.right);
             break;
         case SplitComparison::Less:
-            add_entity(entity, *node.left, splitting_axis);
+            add_entity(entity, *node.left);
             break;
         case SplitComparison::Both:
-            add_entity(entity, *node.right, splitting_axis);
-            add_entity(entity, *node.left, splitting_axis);
+            add_entity(entity, *node.right);
+            add_entity(entity, *node.left);
             break;
     }
 }
 
-void Scene::remove_entity(SceneEntity *entity) {
-    if(entity->sprite.has_emissive_frames()) {
+bool Scene::remove_entity(SceneEntity *entity) {
+    if (entity->sprite.has_emissive_frames()) {
         remove_light(entity);
     }
-    remove_entity(entity, *m_entities_root);
+    return remove_entity(entity, *m_entities_root);
 }
 
-void Scene::remove_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node) {
+bool Scene::remove_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node) {
     if (node.items.data()) {
-        node.items.remove(entity);
-
-        return;
+        return node.items.remove(entity);
     }
 
     auto axis_comparison = scene_entity_axis_comparison(entity, node.splitting_axis, node.splitting_value);
     switch (axis_comparison) {
         case SplitComparison::GreaterOrEqual:
-            remove_entity(entity, *node.right);
-            break;
+            return remove_entity(entity, *node.right);
         case SplitComparison::Less:
-            remove_entity(entity, *node.left);
-            break;
+            return remove_entity(entity, *node.left);
         case SplitComparison::Both:
-            remove_entity(entity, *node.right);
-            remove_entity(entity, *node.left);
-            break;
+            auto removed_from_right = remove_entity(entity, *node.right);
+            auto removed_from_left = remove_entity(entity, *node.left);
+            return removed_from_right || removed_from_left;
     }
 }

@@ -137,6 +137,10 @@ extern unsigned char *pixels[SCREEN_COUNT];
 //       into a buffer,
 //       or into the frame buffer?
 
+// Frame time pos.
+#define ST_FRAMETIMEX       40
+#define ST_FRAMETIMEY       200-8
+
 // AMMO number pos.
 #define ST_AMMOWIDTH        3
 #define ST_AMMOX            44
@@ -340,6 +344,9 @@ static patch_t *armsbg;
 
 // weapon ownership patches
 static patch_t *arms[6][2];
+
+// frame time counter
+static st_number_t w_frametime;
 
 // ready-weapon widget
 static st_number_t w_ready;
@@ -1004,6 +1011,8 @@ void ST_drawWidgets(boolean refresh) {
 
     STlib_updateNum(&w_ready, refresh);
 
+    STlib_updateNum(&w_frametime, refresh, false);
+
     for (i = 0; i < 4; i++) {
         STlib_updateNum(&w_ammo[i], refresh);
         STlib_updateNum(&w_maxammo[i], refresh);
@@ -1200,10 +1209,19 @@ void ST_initData(void) {
 
 }
 
-
+static bool always_on = true;
 void ST_createWidgets(void) {
 
     int i;
+
+    // frame time counter
+    STlib_initNum(&w_frametime,
+                  ST_FRAMETIMEX,
+                  ST_FRAMETIMEY,
+                  shortnum,
+                  RT_GetFrameTime(),
+                  &always_on,
+                  ST_AMMOWIDTH);
 
     // ready weapon ammo
     STlib_initNum(&w_ready,

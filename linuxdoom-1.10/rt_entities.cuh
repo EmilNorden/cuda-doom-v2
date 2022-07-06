@@ -7,11 +7,21 @@
 class SceneEntity;
 
 namespace detail {
-    extern std::vector<SceneEntity*> scene_entities_to_free;
+    extern std::vector<SceneEntity *> scene_entities_to_free;
 }
 
-SceneEntity* RT_CreateMapThing(mobjtype_t type, mobj_t *obj);
-void RT_DestroySceneEntity(SceneEntity* entity);
+SceneEntity *RT_CreateMapThing(mobjtype_t type, mobj_t *obj);
+
+void RT_DestroySceneEntity(SceneEntity *entity);
+
 void RT_UpdateEntityPosition(mobj_t *obj);
+
+void RT_AttachToScene(SceneEntity *entity);
+
+bool RT_DetachFromScene(SceneEntity *entity);
+
+void RT_BeginAttach();
+
+void RT_EndAttach();
 
 #endif

@@ -6,11 +6,15 @@
 #include "renderer/scene_entity.cuh"
 #include "r_main.h"
 #include "rt_material.cuh"
+#include "renderer/scene.cuh"
 
 namespace detail {
     std::array<std::optional<DeviceSprite>, NUMSPRITES> device_sprite_cache;
-    std::vector<SceneEntity*> scene_entities_to_free;
+    std::vector<SceneEntity *> scene_entities_to_free;
+    bool bulk_attach_mode = false;
+    std::vector<SceneEntity *> bulk_attach_entities;
 }
+
 
 std::optional<DeviceSprite> RT_GetDeviceSprite(spritenum_t sprite);
 
@@ -39,7 +43,8 @@ SceneEntity *RT_CreateMapThing(mobjtype_t type, mobj_t *obj) {
     return create_device_type<SceneEntity>(position,
                                            frame & FF_FRAMEMASK,
                                            0,
-                                           sprite.value());
+                                           sprite.value(),
+                                           type == MT_PLAYER);
 }
 
 void RT_DestroySceneEntity(SceneEntity *entity) {
@@ -56,17 +61,24 @@ void RT_UpdateEntityPosition(mobj_t *obj) {
         return;
     }
 
-    obj->scene_entity->position = glm::vec3{
-            RT_FixedToFloating(obj->x),
-            RT_FixedToFloating(obj->z),
-            RT_FixedToFloating(obj->y)
-    };
-
     obj->scene_entity->sprite = RT_GetDeviceSprite(obj->sprite).value();
     obj->scene_entity->frame = obj->frame & FF_FRAMEMASK;
     auto ang = R_PointToAngle(obj->x, obj->y);
     auto rot = (ang - obj->angle + (unsigned) (ANG45 / 2) * 9) >> 29;
     obj->scene_entity->rotation = rot;
+
+    auto new_position = glm::vec3{
+            RT_FixedToFloating(obj->x),
+            RT_FixedToFloating(obj->z),
+            RT_FixedToFloating(obj->y)
+    };
+
+    if(new_position == obj->scene_entity->position) {
+        return;
+    }
+    obj->scene_entity->position = new_position;
+
+    device::scene->refresh_entity(obj->scene_entity);
 }
 
 std::optional<DeviceSprite> RT_GetDeviceSprite(spritenum_t s) {
@@ -127,4 +139,47 @@ std::optional<DeviceSprite> RT_GetDeviceSprite(spritenum_t s) {
     detail::device_sprite_cache[s] = device_sprite;
 
     return device_sprite;
+}
+
+void RT_AttachToScene(SceneEntity *entity) {
+    if (!entity) {
+        return;
+    }
+
+    if (detail::bulk_attach_mode) {
+        detail::bulk_attach_entities.push_back(entity);
+    } else {
+        device::scene->add_entity(entity);
+    }
+}
+
+bool RT_DetachFromScene(SceneEntity *entity) {
+    if (!entity) {
+        return false;
+    }
+
+    return device::scene->remove_entity(entity);
+}
+
+void RT_BeginAttach() {
+    if (detail::bulk_attach_mode) {
+        std::cerr << "RT_BeginAttach called without calling RT_EndAttach\n";
+        return;
+    }
+
+    detail::bulk_attach_mode = true;
+}
+
+void RT_EndAttach() {
+    if (!detail::bulk_attach_mode) {
+        std::cerr << "RT_EndAttach called without calling RT_BeginAttach\n";
+        return;
+    }
+
+    detail::bulk_attach_mode = false;
+
+    printf("Bulk attaching %zu entities\n", detail::bulk_attach_entities.size());
+
+    device::scene->add_entities(detail::bulk_attach_entities);
+    detail::bulk_attach_entities.clear();
 }
