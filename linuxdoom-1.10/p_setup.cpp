@@ -45,6 +45,7 @@ static const char
 
 #include "doomstat.h"
 #include "rt_raytracing.cuh"
+#include "rt_entities.cuh"
 
 
 void P_SpawnMapThing(mapthing_t *mthing);
@@ -615,9 +616,13 @@ P_SetupLevel
     rejectmatrix = (byte *) W_CacheLumpNum(lumpnum + ML_REJECT, PU_LEVEL);
     P_GroupLines();
 
+    RT_BuildScene();
+
     bodyqueslot = 0;
     deathmatch_p = deathmatchstarts;
+    RT_BeginAttach();
     P_LoadThings(lumpnum + ML_THINGS);
+    RT_EndAttach();
 
     // if deathmatch, randomly spawn the active players
     if (deathmatch) {
@@ -643,7 +648,6 @@ P_SetupLevel
         R_PrecacheLevel();
 
     //printf ("free memory: 0x%x\n", Z_FreeMemory());
-    RT_BuildScene();
 }
 
 

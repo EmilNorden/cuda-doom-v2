@@ -3,6 +3,10 @@
 #include "device_stack.cuh"
 #include <algorithm>
 
+
+constexpr size_t EntityGroupSize = 1500;
+constexpr bool entity_valid_axes[3] = {true, false, true};
+
 template<typename T>
 struct NodeSearchData {
     TreeNode<T> *node;
@@ -20,15 +24,22 @@ struct NodeSearchData {
     }
 };
 
-Scene::Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceilings,
-             std::vector<SceneEntity *> &scene_entities, DeviceTexture *sky)
-        : m_sky(sky) {
+Scene::Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceilings, DeviceTexture *sky)
+        : m_emissive_entities(200), m_sky(sky) {
     m_walls_root = create_device_type<TreeNode<Square *>>();
     m_floors_ceilings_root = create_device_type<TreeNode<Triangle *>>();
     m_entities_root = create_device_type<TreeNode<SceneEntity *>>();
 
-    std::cout << "Building scene with " << walls.size() << " walls, " << floors_ceilings.size()
-              << " floor/ceiling triangles and " << scene_entities.size() << " entities\n";
+    std::cout << "Building scene with " << walls.size() << " walls and" << floors_ceilings.size()
+              << " floor/ceiling triangles\n";
+
+    std::vector<Triangle *> emissive_floors_ceilings;
+    for (auto triangle: floors_ceilings) {
+        if (triangle->material.has_emission()) {
+            emissive_floors_ceilings.push_back(triangle);
+        }
+    }
+    m_emissive_floors_ceilings.reset(emissive_floors_ceilings);
 
 
     bool valid_axes[3] = {true, false, true};
@@ -78,46 +89,6 @@ Scene::Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceili
                triangle_sort_callback,
                triangle_median_callback,
                triangle_split_callback);
-
-    std::function<void(std::vector<SceneEntity *> &, Axis axis)> entity_sort_callback = [](
-            std::vector<SceneEntity *> &items,
-            Axis axis) {
-        std::sort(items.begin(), items.end(), [&](const SceneEntity *a, const SceneEntity *b) {
-            return a->position[static_cast<int>(axis)] < b->position[static_cast<int>(axis)];
-        });
-    };
-
-    std::function<glm::vec3(SceneEntity *median)> entity_median_callback = [](SceneEntity *median) {
-        return median->position;
-    };
-
-    std::function<SplitComparison(SceneEntity *item, Axis axis, float splitting_value)> entity_split_callback = [](
-            SceneEntity *item, Axis axis, float splitting_value) {
-        auto sprite_max_bounds = item->sprite.calculate_max_bounds();
-        auto min_bounds = item->position - glm::vec3(sprite_max_bounds.x / 2.0f, 0, sprite_max_bounds.x / 2.0f);
-        auto max_bounds =
-                item->position + glm::vec3(sprite_max_bounds.x / 2.0f, sprite_max_bounds.y, sprite_max_bounds.x / 2.0f);
-
-        bool is_greater_or_equal = min_bounds[axis] >= splitting_value ||
-                                   max_bounds[axis] >= splitting_value;
-
-        bool is_less = min_bounds[axis] <= splitting_value ||
-                       max_bounds[axis] <= splitting_value;
-
-        if (is_greater_or_equal && is_less) {
-            return SplitComparison::Both;
-        } else if (is_greater_or_equal) {
-            return SplitComparison::GreaterOrEqual;
-        } else {
-            return SplitComparison::Less;
-        }
-    };
-
-    auto scene_entities_copy = scene_entities;
-    build_node(*m_entities_root, scene_entities_copy, Axis::X, valid_axes, 2000,
-               entity_sort_callback,
-               entity_median_callback,
-               entity_split_callback);
 }
 
 // TODO: Keep this here until i decide wether to keep the templated version. It's a mess.
@@ -126,9 +97,7 @@ void
 Scene::build_walls_node(TreeNode<Square *> &node, std::vector<Square *> &walls, Axis current_axis, bool valid_axes[3],
                         size_t size_limit) {
     if (walls.size() < size_limit) {
-        cuda_assert(cudaMalloc(&node.items, sizeof(Square *) * walls.size()));
-        cuda_assert(cudaMemcpy(node.items, walls.data(), sizeof(Square *) * walls.size(), cudaMemcpyHostToDevice));
-        node.item_count = walls.size();
+        node.items = DeviceFixedVector<Square *>(walls, size_limit);
         node.left = nullptr;
         node.right = nullptr;
         return;
@@ -175,8 +144,6 @@ Scene::build_walls_node(TreeNode<Square *> &node, std::vector<Square *> &walls, 
 
     node.splitting_axis = current_axis;
     node.splitting_value = splitting_value;
-    node.items = nullptr;
-    node.item_count = 0;
     cuda_assert(cudaMallocManaged(&node.left, sizeof(TreeNode<Square>)));
     cuda_assert(cudaMallocManaged(&node.right, sizeof(TreeNode<Square>)));
 
@@ -190,7 +157,7 @@ Scene::build_walls_node(TreeNode<Square *> &node, std::vector<Square *> &walls, 
 
 template<typename T>
 __device__ bool is_leaf(TreeNode<T> *node) {
-    return node->items;
+    return node->items.data();
 }
 
 enum class RangePlaneComparison {
@@ -227,20 +194,20 @@ CompareRangeWithPlane(const Ray &ray, float tmin, float tmax, TreeNode<T> *node)
 __device__ bool
 intersects_walls_node(const Ray &ray, TreeNode<Square *> *node, Intersection &intersection, float tmax) {
     auto success = false;
-    for (auto i = 0; i < node->item_count; ++i) {
+    for (auto i = 0; i < node->items.count(); ++i) {
         float hit_distance = 0.0f;
         float u = 0.0f;
         float v = 0.0f;
         glm::vec3 normal{};
         if (intersects_wall(ray, node->items[i], hit_distance, u, v, normal) && hit_distance < tmax) {
-            if (node->items[i]->texture->sample({u, v}) > 0xFF) {
+            if (node->items[i]->material.sample_diffuse({u, v}) > 0xFF) {
                 continue;
             }
             tmax = hit_distance;
             intersection.distance = hit_distance;
             intersection.u = u;
             intersection.v = v;
-            intersection.texture = node->items[i]->texture;
+            intersection.material = &node->items[i]->material;
             intersection.world_normal = normal;
 
             success = true;
@@ -254,7 +221,7 @@ __device__ bool
 intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle *> *node, Intersection &intersection,
                                     float tmax) {
     auto success = false;
-    for (auto i = 0; i < node->item_count; ++i) {
+    for (auto i = 0; i < node->items.count(); ++i) {
         float hit_distance = 0.0f;
         float u = 0.0f;
         float v = 0.0f;
@@ -263,7 +230,7 @@ intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle *> *node, 
             intersection.distance = hit_distance;
             intersection.u = u;
             intersection.v = v;
-            intersection.texture = node->items[i]->texture;
+            intersection.material = &node->items[i]->material;
             if (ray.direction().y >= 0.0f) {
                 // Going upwards, must have hit ceiling
                 intersection.world_normal = glm::vec3{0.0f, -1.0f, 0.0f};
@@ -375,23 +342,28 @@ __device__ bool Scene::intersect_floors_and_ceilings(const Ray &ray, Intersectio
 }
 
 __device__ bool
-intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersection &intersection, float tmax) {
+intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersection &intersection, float tmax,
+                       bool ignore_player) {
     auto success = false;
-    for (auto i = 0; i < node->item_count; ++i) {
+    for (auto i = 0; i < node->items.count(); ++i) {
         float hit_distance = 0.0f;
         float u = 0.0f;
         float v = 0.0f;
         if (intersects_scene_entity(ray, node->items[i], hit_distance, u, v) && hit_distance < tmax) {
-            auto texture = node->items[i]->sprite.get_texture(node->items[i]->frame, node->items[i]->rotation);
+            if (ignore_player && node->items[i]->is_player) {
+                continue;
+            }
 
-            if (texture->sample({u, v}) > 0xFF) {
+            auto material = node->items[i]->sprite.get_material(node->items[i]->frame, node->items[i]->rotation);
+
+            if (material->sample_diffuse({u, v}) > 0xFF) {
                 continue;
             }
             tmax = hit_distance;
             intersection.u = u;
             intersection.v = v;
-            intersection.texture = texture;
-            intersection.world_normal = glm::vec3(0, 1, 0); // TODO Dirty workaround for now
+            intersection.material = material;
+            intersection.world_normal = ray.direction() * -1.0f; // TODO Dirty workaround for now
             intersection.distance = hit_distance;
             success = true;
         }
@@ -400,7 +372,7 @@ intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersecti
     return success;
 }
 
-__device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersection) {
+__device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersection, bool ignore_player) {
     constexpr int StackSize = 20;
 
     DeviceStack<StackSize, NodeSearchData<SceneEntity *>> nodes;
@@ -418,7 +390,7 @@ __device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersec
         auto tmax = current.tmax;
 
         if (is_leaf(node)) {
-            if (intersects_entity_node(ray, node, intersection, tmax)) {
+            if (intersects_entity_node(ray, node, intersection, tmax, ignore_player)) {
                 return true;
             }
         } else {
@@ -448,18 +420,35 @@ __device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersec
     return false;
 }
 
-__device__ bool Scene::intersect(const Ray &ray, Intersection &intersection) {
-    intersection.distance = FLT_MAX;
+__device__ bool Scene::intersect(const Ray &ray, Intersection &intersection, bool ignore_player, float tmax) {
+    intersection.distance = tmax;
 
     auto intersects_walls = intersect_walls(ray, intersection);
     auto intersects_floors_or_ceilings = intersect_floors_and_ceilings(ray, intersection);
-    auto intersects_entities = intersect_entities(ray, intersection);
-    //return intersects_walls || intersects_floors_or_ceilings || intersects_things;
+    auto intersects_entities = intersect_entities(ray, intersection, ignore_player);
+    //return intersects_floors_or_ceilings;
     return intersects_walls || intersects_floors_or_ceilings || intersects_entities;
 }
 
-void Scene::rebuild_entities(const std::vector<SceneEntity*>& scene_entities) {
-    // TODO: NEED TO FREE EXISTING NODES OR ELSE LEAK MEMORY
+void Scene::add_light(SceneEntity *entity) {
+    if (m_emissive_entities.is_full()) {
+        return;
+    }
+
+    m_emissive_entities.push_back(entity);
+}
+
+void Scene::remove_light(SceneEntity *entity) {
+    m_emissive_entities.remove(entity);
+}
+
+void Scene::add_entities(const std::vector<SceneEntity *> &entities) {
+    for (auto entity: entities) {
+        if (entity->sprite.has_emissive_frames()) {
+            add_light(entity);
+        }
+    }
+
     std::function<void(std::vector<SceneEntity *> &, Axis axis)> entity_sort_callback = [](
             std::vector<SceneEntity *> &items,
             Axis axis) {
@@ -473,32 +462,121 @@ void Scene::rebuild_entities(const std::vector<SceneEntity*>& scene_entities) {
     };
 
     std::function<SplitComparison(SceneEntity *item, Axis axis, float splitting_value)> entity_split_callback = [](
-            SceneEntity *item, Axis axis, float splitting_value) {
-        auto sprite_max_bounds = item->sprite.calculate_max_bounds();
-        auto min_bounds = item->position - glm::vec3(sprite_max_bounds.x / 2.0f, 0, sprite_max_bounds.x / 2.0f);
-        auto max_bounds =
-                item->position + glm::vec3(sprite_max_bounds.x / 2.0f, sprite_max_bounds.y, sprite_max_bounds.x / 2.0f);
-
-        bool is_greater_or_equal = min_bounds[axis] >= splitting_value ||
-                                   max_bounds[axis] >= splitting_value;
-
-        bool is_less = min_bounds[axis] <= splitting_value ||
-                       max_bounds[axis] <= splitting_value;
-
-        if (is_greater_or_equal && is_less) {
-            return SplitComparison::Both;
-        } else if (is_greater_or_equal) {
-            return SplitComparison::GreaterOrEqual;
-        } else {
-            return SplitComparison::Less;
-        }
+            const SceneEntity *entity, Axis axis, float split_value) {
+        return Scene::scene_entity_axis_comparison(entity, axis, split_value);
     };
 
-    auto scene_entities_copy = scene_entities;
-    bool valid_axes[3] = {true, false, true};
-    printf("Rebuilding %zu entities!\n", scene_entities.size());
-    build_node(*m_entities_root, scene_entities_copy, Axis::X, valid_axes, 2000,
+    auto entities_copy = entities;
+    bool valid_axes[3] = {entity_valid_axes[0], entity_valid_axes[1], entity_valid_axes[2]};
+    build_node(*m_entities_root, entities_copy, Axis::X, valid_axes, EntityGroupSize,
                entity_sort_callback,
                entity_median_callback,
                entity_split_callback);
+}
+
+void Scene::add_entity(SceneEntity *entity) {
+    if (entity->sprite.has_emissive_frames()) {
+        add_light(entity);
+    }
+    add_entity(entity, *m_entities_root);
+}
+
+void Scene::refresh_entity(SceneEntity *entity) {
+    if (remove_entity(entity, *m_entities_root)) {
+        // If we managed to remove it from the scene, we can safely add it again.
+        // If we didnt manage to remove it, it means it has already been removed (ie explosions or smoke puffs that live for a short time)
+        // Adding it again would mean we'd have frozen explosions around the map
+        add_entity(entity, *m_entities_root);
+    }
+}
+
+void Scene::add_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node) {
+    if (node.items.data()) {
+        if (!node.items.is_full()) {
+            node.items.push_back(entity);
+            return;
+        }
+        printf("ITS SPLITTING TIME\n");
+
+        std::sort(node.items.data(), node.items.data() + node.items.count(),
+                  [&](const SceneEntity *a, const SceneEntity *b) {
+                      return a->position[static_cast<int>(node.splitting_axis)] <
+                             b->position[static_cast<int>(node.splitting_axis)];
+                  });
+
+        auto half_size = node.items.count() / 2;
+        auto median_point = node.items[half_size]->position;
+        auto splitting_value = median_point[static_cast<int>(node.splitting_axis)];
+
+        std::vector<SceneEntity *> left_side;
+        std::vector<SceneEntity *> right_side;
+
+        left_side.reserve(half_size);
+        right_side.reserve(half_size);
+
+        for (int i = 0; i < node.items.count(); ++i) {
+            auto result = scene_entity_axis_comparison(node.items[i], node.splitting_axis, splitting_value);
+            if (result == SplitComparison::GreaterOrEqual || result == SplitComparison::Both) {
+                right_side.push_back(node.items[i]);
+            }
+
+            if (result == SplitComparison::Less || result == SplitComparison::Both) {
+                left_side.push_back(node.items[i]);
+            }
+        }
+
+
+        Axis next_axis = node.splitting_axis;
+        do {
+            next_axis = static_cast<Axis>((next_axis + 1) % 3);
+        } while (!entity_valid_axes[next_axis]);
+
+        node.items.reset();
+        node.splitting_value = splitting_value;
+        cuda_assert(cudaMallocManaged(&node.left, sizeof(TreeNode<SceneEntity *>)));
+        cuda_assert(cudaMallocManaged(&node.right, sizeof(TreeNode<SceneEntity *>)));
+        node.left->items = DeviceFixedVector<SceneEntity *>(left_side, EntityGroupSize);
+        node.left->splitting_axis = next_axis;
+        node.right->items = DeviceFixedVector<SceneEntity *>(right_side, EntityGroupSize);
+        node.right->splitting_axis = next_axis;
+    }
+
+    auto axis_comparison = scene_entity_axis_comparison(entity, node.splitting_axis, node.splitting_value);
+    switch (axis_comparison) {
+        case SplitComparison::GreaterOrEqual:
+            add_entity(entity, *node.right);
+            break;
+        case SplitComparison::Less:
+            add_entity(entity, *node.left);
+            break;
+        case SplitComparison::Both:
+            add_entity(entity, *node.right);
+            add_entity(entity, *node.left);
+            break;
+    }
+}
+
+bool Scene::remove_entity(SceneEntity *entity) {
+    if (entity->sprite.has_emissive_frames()) {
+        remove_light(entity);
+    }
+    return remove_entity(entity, *m_entities_root);
+}
+
+bool Scene::remove_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node) {
+    if (node.items.data()) {
+        return node.items.remove(entity);
+    }
+
+    auto axis_comparison = scene_entity_axis_comparison(entity, node.splitting_axis, node.splitting_value);
+    switch (axis_comparison) {
+        case SplitComparison::GreaterOrEqual:
+            return remove_entity(entity, *node.right);
+        case SplitComparison::Less:
+            return remove_entity(entity, *node.left);
+        case SplitComparison::Both:
+            auto removed_from_right = remove_entity(entity, *node.right);
+            auto removed_from_left = remove_entity(entity, *node.left);
+            return removed_from_right || removed_from_left;
+    }
 }

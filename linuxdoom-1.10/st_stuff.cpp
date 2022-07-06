@@ -60,6 +60,7 @@ static const char
 // Data.
 #include "dstrings.h"
 #include "sounds.h"
+#include "rt_raytracing.cuh"
 
 extern unsigned char *pixels[SCREEN_COUNT];
 
@@ -135,6 +136,10 @@ extern unsigned char *pixels[SCREEN_COUNT];
 //       Problem is, is the stuff rendered
 //       into a buffer,
 //       or into the frame buffer?
+
+// Frame time pos.
+#define ST_FRAMETIMEX       40
+#define ST_FRAMETIMEY       200-8
 
 // AMMO number pos.
 #define ST_AMMOWIDTH        3
@@ -340,6 +345,9 @@ static patch_t *armsbg;
 // weapon ownership patches
 static patch_t *arms[6][2];
 
+// frame time counter
+static st_number_t w_frametime;
+
 // ready-weapon widget
 static st_number_t w_ready;
 
@@ -507,9 +515,9 @@ void ST_refreshBackground(void) {
 
         // TODO: This could be rewritten to not do the CopyRect calls like so:
 
-          /*V_DrawPatch(ST_X, ST_Y, FG, sbar);
-            if (netgame)
-                V_DrawPatch(ST_FX, ST_Y, FG, faceback);
+        /*V_DrawPatch(ST_X, ST_Y, FG, sbar);
+          if (netgame)
+              V_DrawPatch(ST_FX, ST_Y, FG, faceback);
 */
 
 
@@ -939,6 +947,14 @@ void ST_Ticker(void) {
 
 static int st_palette = 0;
 
+void ST_SetDefaultPalette() {
+
+    st_palette = 0;
+    auto pal = (byte *) W_CacheLumpNum(lu_palette, PU_CACHE) + st_palette * 768;
+    I_SetPalette(pal);
+
+}
+
 void ST_doPaletteStuff(void) {
 
     int palette;
@@ -995,6 +1011,8 @@ void ST_drawWidgets(boolean refresh) {
 
     STlib_updateNum(&w_ready, refresh);
 
+    STlib_updateNum(&w_frametime, refresh, false);
+
     for (i = 0; i < 4; i++) {
         STlib_updateNum(&w_ammo[i], refresh);
         STlib_updateNum(&w_maxammo[i], refresh);
@@ -1031,13 +1049,13 @@ void ST_doRefresh(void) {
 
 void ST_diffDraw(void) {
     // update all widgets
-    ST_drawWidgets(false);
+    ST_drawWidgets(RT_IsEnabled());
 }
 
 void ST_Drawer(boolean fullscreen, boolean refresh) {
 
     st_statusbaron = (!fullscreen) || automapactive;
-    st_firsttime = st_firsttime || refresh;
+    st_firsttime = st_firsttime || refresh || RT_IsEnabled();
 
     // Do red-/gold-shifts from damage/items
     ST_doPaletteStuff();
@@ -1102,21 +1120,21 @@ void ST_loadGraphics(void) {
     for (i = 0; i < ST_NUMPAINFACES; i++) {
         for (j = 0; j < ST_NUMSTRAIGHTFACES; j++) {
             sprintf(namebuf, "STFST%d%d", i, j);
-            faces[facenum++] = (patch_t*)W_CacheLumpName(namebuf, PU_STATIC);
+            faces[facenum++] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
         }
         sprintf(namebuf, "STFTR%d0", i);    // turn right
-        faces[facenum++] = (patch_t*)W_CacheLumpName(namebuf, PU_STATIC);
+        faces[facenum++] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
         sprintf(namebuf, "STFTL%d0", i);    // turn left
-        faces[facenum++] = (patch_t*)W_CacheLumpName(namebuf, PU_STATIC);
+        faces[facenum++] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
         sprintf(namebuf, "STFOUCH%d", i);    // ouch!
-        faces[facenum++] = (patch_t*)W_CacheLumpName(namebuf, PU_STATIC);
+        faces[facenum++] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
         sprintf(namebuf, "STFEVL%d", i);    // evil grin ;)
-        faces[facenum++] = (patch_t*)W_CacheLumpName(namebuf, PU_STATIC);
+        faces[facenum++] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
         sprintf(namebuf, "STFKILL%d", i);    // pissed off
-        faces[facenum++] = (patch_t*)W_CacheLumpName(namebuf, PU_STATIC);
+        faces[facenum++] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
     }
-    faces[facenum++] = (patch_t*)W_CacheLumpName("STFGOD0", PU_STATIC);
-    faces[facenum++] = (patch_t*)W_CacheLumpName("STFDEAD0", PU_STATIC);
+    faces[facenum++] = (patch_t *) W_CacheLumpName("STFGOD0", PU_STATIC);
+    faces[facenum++] = (patch_t *) W_CacheLumpName("STFDEAD0", PU_STATIC);
 
 }
 
@@ -1191,10 +1209,19 @@ void ST_initData(void) {
 
 }
 
-
+static bool always_on = true;
 void ST_createWidgets(void) {
 
     int i;
+
+    // frame time counter
+    STlib_initNum(&w_frametime,
+                  ST_FRAMETIMEX,
+                  ST_FRAMETIMEY,
+                  shortnum,
+                  RT_GetFrameTime(),
+                  &always_on,
+                  ST_AMMOWIDTH);
 
     // ready weapon ammo
     STlib_initNum(&w_ready,
@@ -1367,7 +1394,7 @@ void ST_Stop(void) {
     if (st_stopped)
         return;
 
-    I_SetPalette((byte*)W_CacheLumpNum(lu_palette, PU_CACHE));
+    I_SetPalette((byte *) W_CacheLumpNum(lu_palette, PU_CACHE));
 
     st_stopped = true;
 }

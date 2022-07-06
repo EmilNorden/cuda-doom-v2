@@ -69,6 +69,7 @@ static const char
 
 
 #include "g_game.h"
+#include "rt_dizzy_effect.cuh"
 
 extern unsigned char *pixels[SCREEN_COUNT];
 
@@ -458,6 +459,8 @@ void G_DoLoadLevel(void) {
         memset(players[i].frags, 0, sizeof(players[i].frags));
     }
 
+    ST_SetDefaultPalette();
+
     P_SetupLevel(gameepisode, gamemap, 0, gameskill);
     // R_BuildGeometry();
     displayplayer = consoleplayer;        // view the guy you are playing
@@ -686,6 +689,7 @@ void G_Ticker(void) {
             ST_Ticker();
             AM_Ticker();
             HU_Ticker();
+            RT_DizzyTick();
             break;
 
         case GS_INTERMISSION:

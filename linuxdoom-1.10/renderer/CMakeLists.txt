@@ -8,6 +8,7 @@ target_sources(doom_lib PRIVATE
         coordinates.cuh
         cuda_utils.cu
         cuda_utils.cuh
+        device_fixed_vector.cuh
         device_material.cu
         device_material.cuh
         device_random.cu

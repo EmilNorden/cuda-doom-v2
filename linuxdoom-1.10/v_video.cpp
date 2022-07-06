@@ -51,12 +51,15 @@ static const char *glsl_drawtex_fragshader_src =
         "#version 330 core\n"
         "uniform usampler2D tex;\n"
         "uniform usampler1D palette_tex;\n"
+        "uniform usampler2D mask;\n"
         "uniform bool interpolate = false;"
         "in vec3 ourColor;\n"
         "in vec2 ourTexCoord;\n"
         "out vec4 color;\n"
         "vec4 color_at_texcoord(vec2 v)"
         "{"
+        "       uvec4 mask_value = texture(mask, v);"
+        "       if(mask_value.x == uint(0)) { discard; }"
         "       uvec4 index = texture(tex, v);\n"
         "       vec4 c = texture(palette_tex, float(index) / 255.0);\n"
         "   	return vec4(c.rgb, 255) / 255.0;\n"
@@ -101,6 +104,7 @@ static const char *glsl_drawtex_fragshader_src =
 #include "v_video.h"
 #include "r_opengl.h"
 #include "r_geometry.h"
+#include "rt_raytracing.cuh"
 #include <GL/glew.h>
 #include <stdlib.h>
 
@@ -114,8 +118,10 @@ static SDL_GLContext gl_context;
 static GLuint VBO, VAO, EBO;
 static GLuint fragment_shader, vertex_shader, shader_program;
 static GLuint frame_texture;
+static GLuint mask_texture;
 static GLuint palette_texture;
 GLubyte *pixels[SCREEN_COUNT];
+GLubyte *mask;
 static GLubyte current_palette[256 * 3];
 
 
@@ -127,7 +133,7 @@ byte gammatable[5][256] =
                                                                                                                                                  33, 34, 35, 36, 37, 38, 39,  40,  41,  42,  43,  44, 45,  46,  47,  48,
                                                                                                                                                                                                                           49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63,  64,
                                                                                                                                                                                                                                                                                                           65,  66,  67,  68,  69,  70,  71,  72,  73,  74,  75,  76,  77,  78,  79,  80,
-                                                                                                                                                                                                                                                                                                                                                                                           81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95,  96,
+                                                                                                                                                                                                                                                                                                                                                                                          81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95,  96,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                           97,  98,  99,  100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143,
@@ -236,6 +242,7 @@ V_CopyRect
          int destscrn) {
     byte *src;
     byte *dest;
+    byte *dest_mask;
 
 #ifdef RANGECHECK
     if (srcx < 0
@@ -254,11 +261,16 @@ V_CopyRect
 
     src = pixels[srcscrn] + SCREENWIDTH * srcy + srcx;
     dest = pixels[destscrn] + SCREENWIDTH * desty + destx;
+    dest_mask = mask + SCREENWIDTH * desty + destx;
 
     for (; height > 0; height--) {
         memcpy(dest, src, width);
+        for(int i = 0; i < width; ++i) {
+            dest_mask[i] = 0xFF;
+        }
         src += SCREENWIDTH;
         dest += SCREENWIDTH;
+        dest_mask += SCREENWIDTH;
     }
 }
 
@@ -297,6 +309,10 @@ V_DrawPatch
                 int screen_y = y + column->topdelta + patch_y;
                 int index = screen_y * SCREENWIDTH + screen_x;
                 pixels[scrn][index] = *source++;
+                if(scrn == 0) {
+                    mask[index] = 0xFF;
+                }
+
             }
 
             column = (column_t *) ((byte *) column + column->length
@@ -445,6 +461,7 @@ V_DrawBlock
          int height,
          byte *src) {
     byte *dest;
+    byte *dest_mask;
 
 #ifdef RANGECHECK
     if (x < 0
@@ -458,11 +475,16 @@ V_DrawBlock
 
     V_MarkRect(x, y, width, height);
     dest = pixels[scrn] + y * SCREENWIDTH + x;
+    dest_mask = mask + y * SCREENWIDTH + x;
 
     while (height--) {
         memcpy(dest, src, width);
+        for(int i = 0; i < width; ++i) {
+            dest_mask[i] = 0xFF;
+        }
         src += width;
         dest += SCREENWIDTH;
+        dest_mask += SCREENWIDTH;
     }
 }
 
@@ -525,7 +547,7 @@ static void init_sdl_window(boolean fullscreen) {
 
     int flags = SDL_WINDOW_OPENGL;
 
-    if(fullscreen == true) {
+    if (fullscreen == true) {
         flags |= SDL_WINDOW_FULLSCREEN;
         int display_count = SDL_GetNumVideoDisplays();
 
@@ -536,10 +558,10 @@ static void init_sdl_window(boolean fullscreen) {
     }
 
     window = SDL_CreateWindow("DOOM!",
-                               SDL_WINDOWPOS_CENTERED,
-                               SDL_WINDOWPOS_CENTERED,
-                               width, height,
-                               flags);
+                              SDL_WINDOWPOS_CENTERED,
+                              SDL_WINDOWPOS_CENTERED,
+                              width, height,
+                              flags);
 
     gl_context = SDL_GL_CreateContext(window);
     SDL_GL_SetSwapInterval(1);
@@ -602,7 +624,7 @@ GLuint compile_shader(GLenum shader_type, const char *source) {
     return shader;
 }
 
-GLuint create_frame_texture(int width, int height) {
+GLuint create_frame_texture(int width, int height, GLubyte *buffer) {
     GLuint texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
@@ -612,7 +634,7 @@ GLuint create_frame_texture(int width, int height) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, pixels);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, buffer);
     // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI_EXT, width, height, 0, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_BYTE, NULL);
 
     R_CheckForGlErrors();
@@ -640,8 +662,7 @@ GLuint create_palette_texture() {
     return texture;
 }
 
-static void init_gl_buffers()
-{
+static void init_gl_buffers() {
     // Generate buffers
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -675,7 +696,8 @@ static void init_gl_buffers()
 }
 
 void init_gl_textures() {
-    frame_texture = create_frame_texture(SCREENWIDTH, SCREENHEIGHT);
+    frame_texture = create_frame_texture(SCREENWIDTH, SCREENHEIGHT, pixels[0]);
+    mask_texture = create_frame_texture(SCREENWIDTH, SCREENHEIGHT, mask);
     palette_texture = create_palette_texture();
 }
 
@@ -698,14 +720,19 @@ void V_Init(void) {
 
     for (i = 0; i < 4; i++) {
         screens[i] = base + i * SCREENWIDTH * SCREENHEIGHT;
-        pixels[i] = (GLubyte*)malloc(SCREENWIDTH * SCREENHEIGHT);
+        pixels[i] = (GLubyte *) malloc(SCREENWIDTH * SCREENHEIGHT);
         memset(pixels[i], 0x00, SCREENWIDTH * SCREENHEIGHT);
     }
+
+    mask = (GLubyte *) malloc(SCREENWIDTH * SCREENHEIGHT);
+    memset(mask, 0x00, SCREENWIDTH * SCREENHEIGHT);
 
     init_sdl_window(false);
     init_gl_buffers();
     init_gl_textures();
     init_gl_shaders();
+
+    glDepthMask(false);
 
     R_CheckForGlErrors();
 }
@@ -729,17 +756,27 @@ void update_frame_texture(void) {
                         GL_UNSIGNED_BYTE,
                         pixels);*/
 
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, frame_texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, pixels[0]);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, mask_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, mask);
     // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI_EXT, 320, 200, 0, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_BYTE, pixels);
 
     R_CheckForGlErrors();
 }
 
+void clear_mask_texture() {
+    auto mask_value = RT_IsEnabled() ? 0x00 : 0xFF;
+    memset(mask, mask_value, SCREENWIDTH*SCREENHEIGHT);
+}
+
 void V_Render(void) {
     update_frame_texture();
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    //glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    //glClear(GL_COLOR_BUFFER_BIT);
 
     glUseProgram(shader_program);
     glActiveTexture(GL_TEXTURE0);
@@ -750,12 +787,17 @@ void V_Render(void) {
     glBindTexture(GL_TEXTURE_1D, palette_texture);
     glUniform1i(glGetUniformLocation(shader_program, "palette_tex"), 1);
 
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, mask_texture);
+    glUniform1i(glGetUniformLocation(shader_program, "mask"), 2);
+
     //R_DrawGeometry();
     glBindVertexArray(VAO); // binding VAO automatically binds EBO
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0); // unbind VAO
 
     R_CheckForGlErrors();
+    clear_mask_texture();
 }
 
 void V_Swap(void) {

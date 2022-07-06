@@ -2,13 +2,14 @@
 #define DOOM_SQUARE_H_
 
 #include <glm/glm.hpp>
+#include "device_material.cuh"
 
 class Ray;
 class DeviceTexture;
 
 struct Square {
     __device__ __host__ Square(const glm::vec3 &top_left, const glm::vec3 &horizontal_vec, const glm::vec3 &vertical_vec, const glm::vec2 &uv_scale,
-                               DeviceTexture *texture)
+                               DeviceMaterial material)
             : top_left(top_left),
               horizontal_vec(glm::normalize(horizontal_vec)),
               vertical_vec(glm::normalize(vertical_vec)),
@@ -16,7 +17,7 @@ struct Square {
               vertical_len(glm::length(vertical_vec)),
               uv_scale(uv_scale),
               uv_offset(0.0f),
-              texture(texture),
+              material(material),
               texture_wrapping(true),
               lower_unpegged(false) {
     }
@@ -31,7 +32,7 @@ struct Square {
     bool texture_wrapping;
     bool lower_unpegged;
 
-    DeviceTexture *texture;
+    DeviceMaterial material;
 };
 
 // TODO: Temporarily making this __host__. Not needed, remove later

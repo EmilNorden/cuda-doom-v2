@@ -165,7 +165,8 @@ STlib_initNum
 void
 STlib_updateNum
 ( st_number_t*		n,
-  boolean		refresh );
+  boolean		refresh,
+  boolean       include_background = true);
 
 
 // Percent widget routines

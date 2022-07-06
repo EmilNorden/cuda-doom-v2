@@ -175,7 +175,7 @@ namespace wad {
         return m_textures[number];
     }
 
-    const Picture &GraphicsData::get_sprite(const std::string &name) const {
+    const Picture &GraphicsData::get_sprite(std::string_view name) const {
         for(auto &sprite : m_sprites) {
             if(sprite.name == name) {
                 return sprite;

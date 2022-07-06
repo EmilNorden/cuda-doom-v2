@@ -11,7 +11,7 @@ __global__ void autofocus_kernel(Camera* camera, Scene* scene, size_t width, siz
 
     float closest_intersection = 1000.0f;
     Intersection intersection;
-    if(scene->intersect(ray, intersection)) {
+    if(scene->intersect(ray, intersection, true)) {
         closest_intersection = intersection.distance;
     }
 

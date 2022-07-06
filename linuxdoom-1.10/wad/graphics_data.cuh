@@ -63,7 +63,7 @@ namespace wad {
         [[nodiscard]] const MapTexture &get_texture(std::string_view name) const;
         [[nodiscard]] const MapTexture &get_texture(short number) const;
 
-        [[nodiscard]] const Picture& get_sprite(const std::string &name) const;
+        [[nodiscard]] const Picture& get_sprite(std::string_view name) const;
 
     private:
         std::vector<MapTexture> m_textures;

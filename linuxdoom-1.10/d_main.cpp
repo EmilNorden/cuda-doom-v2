@@ -289,11 +289,10 @@ void handle_keydown(SDL_Keycode key, SDL_Keymod modifiers) {
 void handle_keyup(SDL_Keycode key) {
     event_t event;
 
-    if(key == SDLK_F12) {
-        if(RT_IsEnabled()) {
+    if (key == SDLK_F12) {
+        if (RT_IsEnabled()) {
             RT_Disable();
-        }
-        else {
+        } else {
             RT_Enable();
         }
     }
@@ -305,8 +304,8 @@ void handle_keyup(SDL_Keycode key) {
 
 void handle_gamepad_button_down(int button) {
     int number_of_mappings = sizeof(gamepad_mappings) / sizeof(gamepad_button_mapping_t);
-    for(int i = 0; i < number_of_mappings; ++i) {
-        if(gamepad_mappings[i].gamepad_button == button) {
+    for (int i = 0; i < number_of_mappings; ++i) {
+        if (gamepad_mappings[i].gamepad_button == button) {
             handle_keydown(gamepad_mappings[i].sdl_key, KMOD_NONE);
             break;
         }
@@ -315,18 +314,18 @@ void handle_gamepad_button_down(int button) {
 
 void handle_gamepad_button_up(int button) {
     int number_of_mappings = sizeof(gamepad_mappings) / sizeof(gamepad_button_mapping_t);
-    if(button == 5) {
+    if (button == 5) {
         P_NextWeapon(&players[0]);
-    } else if(button == 4) {
+    } else if (button == 4) {
         P_PreviousWeapon(&players[0]);
 
-        if(!haptic[0]) {
+        if (!haptic[0]) {
             fprintf(stderr, "No haptic :(\n");
         }
 
         SDL_HapticEffect effect;
         // Create the effect
-        SDL_memset( &effect, 0, sizeof(SDL_HapticEffect) ); // 0 is safe default
+        SDL_memset(&effect, 0, sizeof(SDL_HapticEffect)); // 0 is safe default
         effect.type = SDL_HAPTIC_SINE;
         effect.periodic.direction.type = SDL_HAPTIC_POLAR; // Polar coordinates
         effect.periodic.direction.dir[0] = 18000; // Force comes from south
@@ -337,18 +336,18 @@ void handle_gamepad_button_up(int button) {
         effect.periodic.fade_length = 1000; // Takes 1 second to fade away
 
         // Upload the effect
-        auto effect_id = SDL_HapticNewEffect( haptic[0], &effect );
+        auto effect_id = SDL_HapticNewEffect(haptic[0], &effect);
 
         // Test the effect
-        SDL_HapticRunEffect( haptic[0], effect_id, 1 );
-        SDL_Delay( 5000); // Wait for the effect to finish
+        SDL_HapticRunEffect(haptic[0], effect_id, 1);
+        SDL_Delay(5000); // Wait for the effect to finish
 
         // We destroy the effect, although closing the device also does this
-        SDL_HapticDestroyEffect( haptic[0], effect_id );
+        SDL_HapticDestroyEffect(haptic[0], effect_id);
 
     }
-    for(int i = 0; i < number_of_mappings; ++i) {
-        if(gamepad_mappings[i].gamepad_button == button) {
+    for (int i = 0; i < number_of_mappings; ++i) {
+        if (gamepad_mappings[i].gamepad_button == button) {
             handle_keyup(gamepad_mappings[i].sdl_key);
             break;
         }
@@ -370,24 +369,23 @@ static float normalize_axis_value(int axis_value) {
 
 static float gamepad_right_stick_x = 0.0f;
 static float gamepad_left_stick_y = 0.0f;
+
 static void handle_gamepad_axis(SDL_JoyAxisEvent *gamepad_event) {
-    if(gamepad_event->axis == 0) {
-        if(gamepad_event->value <= 8000 && gamepad_event->value >= -8000) {
+    if (gamepad_event->axis == 0) {
+        if (gamepad_event->value <= 8000 && gamepad_event->value >= -8000) {
             handle_keyup(SDLK_RALT);
-            handle_keyup(SDLK_RIGHT);handle_keyup(SDLK_LEFT);
-        } else if(gamepad_event->value > 8000) {
+            handle_keyup(SDLK_RIGHT);
+            handle_keyup(SDLK_LEFT);
+        } else if (gamepad_event->value > 8000) {
             handle_keydown(SDLK_RIGHT, KMOD_NONE);
             handle_keydown(SDLK_RALT, KMOD_NONE);
-        }
-        else if(gamepad_event->value < -8000) {
+        } else if (gamepad_event->value < -8000) {
             handle_keydown(SDLK_LEFT, KMOD_NONE);
             handle_keydown(SDLK_RALT, KMOD_NONE);
         }
-    }
-    else if(gamepad_event->axis == 1) {
+    } else if (gamepad_event->axis == 1) {
         gamepad_left_stick_y = normalize_axis_value(gamepad_event->value);
-    }
-    else if (gamepad_event->axis == 2) {
+    } else if (gamepad_event->axis == 2) {
         gamepad_right_stick_x = normalize_axis_value(gamepad_event->value);
     }
 }
@@ -459,13 +457,7 @@ void D_Display(void) {
 
     // draw the view directly
     if (gamestate == GS_LEVEL && !automapactive && gametic) {
-        if(RT_IsEnabled()) {
-            RT_RenderSample();
-        }
-        else {
-            R_RenderPlayerView(&players[displayplayer]);
-        }
-
+        R_RenderPlayerView(&players[displayplayer]);
     }
 
     if (gamestate == GS_LEVEL && gametic)
@@ -473,7 +465,7 @@ void D_Display(void) {
 
     // clean up border stuff
     if (gamestate != oldgamestate && gamestate != GS_LEVEL)
-        I_SetPalette((byte*)W_CacheLumpName("PLAYPAL", PU_CACHE));
+        I_SetPalette((byte *) W_CacheLumpName("PLAYPAL", PU_CACHE));
 
     // see if the border needs to be initially drawn
     if (gamestate == GS_LEVEL && oldgamestate != GS_LEVEL) {
@@ -504,7 +496,7 @@ void D_Display(void) {
         else
             y = viewwindowy + 4;
         V_DrawPatchDirect(viewwindowx + (scaledviewwidth - 68) / 2,
-                          y, 0, (patch_t*)W_CacheLumpName("M_PAUSE", PU_CACHE));
+                          y, 0, (patch_t *) W_CacheLumpName("M_PAUSE", PU_CACHE));
     }
 
 
@@ -577,16 +569,15 @@ extern boolean demorecording;
 
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            if(event.type == SDL_WINDOWEVENT) {
+            if (event.type == SDL_WINDOWEVENT) {
                 printf("window event %d\n", event.window.event);
-                switch(event.window.event) {
+                switch (event.window.event) {
                     case SDL_WINDOWEVENT_SIZE_CHANGED:
                         RT_WindowChanged();
                         break;
                 }
-            }
-            else if (event.type == SDL_KEYDOWN) {
-                handle_keydown(event.key.keysym.sym, (SDL_Keymod)event.key.keysym.mod);
+            } else if (event.type == SDL_KEYDOWN) {
+                handle_keydown(event.key.keysym.sym, (SDL_Keymod) event.key.keysym.mod);
             } else if (event.type == SDL_KEYUP) {
                 handle_keyup(event.key.keysym.sym);
             } else if (event.type == SDL_JOYAXISMOTION) {
@@ -601,7 +592,7 @@ extern boolean demorecording;
                         printf("Gamepad %d connected.\n", event.jdevice.which);
                         auto h = SDL_HapticOpen(event.jdevice.which);
                         haptic[event.jdevice.which] = h;
-                        if(!h) {
+                        if (!h) {
                             fprintf(stderr, "Unable to open haptic on gamepad\n");
                         }
                     } else {
@@ -617,11 +608,9 @@ extern boolean demorecording;
                     gamepads[event.jdevice.which] = NULL;
                     printf("Gamepad %d disconnected.\n", event.jdevice.which);
                 }
-            }
-            else if(event.type == SDL_JOYBUTTONDOWN) {
+            } else if (event.type == SDL_JOYBUTTONDOWN) {
                 handle_gamepad_button_down(event.jbutton.button);
-            }
-            else if(event.type == SDL_JOYBUTTONUP) {
+            } else if (event.type == SDL_JOYBUTTONUP) {
                 handle_gamepad_button_up(event.jbutton.button);
             }
         }
@@ -631,7 +620,7 @@ extern boolean demorecording;
         e.data1 = 0;
         // event.data1 = Button data??
         e.data2 = (int) (gamepad_right_stick_x * 150);
-        e.data3 = (int)(gamepad_left_stick_y * 100);
+        e.data3 = (int) (gamepad_left_stick_y * 100);
         D_PostEvent(&e);
 
         // Update display, next frame, with current state.
@@ -672,7 +661,7 @@ void D_PageTicker(void) {
 // D_PageDrawer
 //
 void D_PageDrawer(void) {
-    V_DrawPatch(0, 0, 0, (patch_t*)W_CacheLumpName(pagename, PU_CACHE));
+    V_DrawPatch(0, 0, 0, (patch_t *) W_CacheLumpName(pagename, PU_CACHE));
 }
 
 
@@ -774,7 +763,7 @@ void D_AddFile(char *file) {
 
     for (numwadfiles = 0; wadfiles[numwadfiles]; numwadfiles++);
 
-    newfile = (char*)malloc(strlen(file) + 1);
+    newfile = (char *) malloc(strlen(file) + 1);
     strcpy(newfile, file);
 
     wadfiles[numwadfiles] = newfile;
@@ -805,32 +794,32 @@ void IdentifyVersion(void) {
         doomwaddir = ".";
 
     // Commercial.
-    doom2wad = (char*)malloc(strlen(doomwaddir) + 1 + 9 + 1);
+    doom2wad = (char *) malloc(strlen(doomwaddir) + 1 + 9 + 1);
     sprintf(doom2wad, "%s/doom2.wad", doomwaddir);
 
     // Retail.
-    doomuwad = (char*)malloc(strlen(doomwaddir) + 1 + 9 + 1);
+    doomuwad = (char *) malloc(strlen(doomwaddir) + 1 + 9 + 1);
     sprintf(doomuwad, "%s/doomu.wad", doomwaddir);
 
     // Registered.
-    doomwad = (char*)malloc(strlen(doomwaddir) + 1 + 8 + 1);
+    doomwad = (char *) malloc(strlen(doomwaddir) + 1 + 8 + 1);
     sprintf(doomwad, "%s/doom.wad", doomwaddir);
 
     // Shareware.
-    doom1wad = (char*)malloc(strlen(doomwaddir) + 1 + 9 + 1);
+    doom1wad = (char *) malloc(strlen(doomwaddir) + 1 + 9 + 1);
     sprintf(doom1wad, "%s/doom1.wad", doomwaddir);
 
     // Bug, dear Shawn.
     // Insufficient malloc, caused spurious realloc errors.
-    plutoniawad = (char*)malloc(strlen(doomwaddir) + 1 +/*9*/12 + 1);
+    plutoniawad = (char *) malloc(strlen(doomwaddir) + 1 +/*9*/12 + 1);
     sprintf(plutoniawad, "%s/plutonia.wad", doomwaddir);
 
-    tntwad = (char*)malloc(strlen(doomwaddir) + 1 + 9 + 1);
+    tntwad = (char *) malloc(strlen(doomwaddir) + 1 + 9 + 1);
     sprintf(tntwad, "%s/tnt.wad", doomwaddir);
 
 
     // French stuff.
-    doom2fwad = (char*)malloc(strlen(doomwaddir) + 1 + 10 + 1);
+    doom2fwad = (char *) malloc(strlen(doomwaddir) + 1 + 10 + 1);
     sprintf(doom2fwad, "%s/doom2f.wad", doomwaddir);
 
     home = getenv("HOME");
@@ -960,7 +949,7 @@ void FindResponseFile(void) {
             fseek(handle, 0, SEEK_END);
             size = ftell(handle);
             fseek(handle, 0, SEEK_SET);
-            file = (char *)malloc(size);
+            file = (char *) malloc(size);
             fread(file, size, 1, handle);
             fclose(handle);
 
@@ -969,7 +958,7 @@ void FindResponseFile(void) {
                 moreargs[index++] = myargv[k];
 
             firstargv = myargv[0];
-            myargv = (char **)malloc(sizeof(char *) * MAXARGVS);
+            myargv = (char **) malloc(sizeof(char *) * MAXARGVS);
             memset(myargv, 0, sizeof(char *) * MAXARGVS);
             myargv[0] = firstargv;
 
@@ -1175,7 +1164,7 @@ void D_DoomMain(void) {
 
     p = M_CheckParm("-skill");
     if (p && p < myargc - 1) {
-        startskill = (skill_t)(myargv[p + 1][0] - '1');
+        startskill = (skill_t) (myargv[p + 1][0] - '1');
         autostart = true;
     }
 
@@ -1314,7 +1303,15 @@ void D_DoomMain(void) {
     ST_Init();
 
     printf("RT_Init: Init ray tracing subsystem.\n");
-    RT_Init(wadfiles);
+    RayTracingInitOptions rt_options;
+    rt_options.wadfiles = wadfiles;
+
+    p = M_CheckParm("-mat");
+    if (p && p < myargc - 1) {
+        rt_options.materials_file = myargv[p + 1];
+    }
+
+    RT_Init(rt_options);
 
     // check for a driver that wants intermission stats
     p = M_CheckParm("-statcopy");

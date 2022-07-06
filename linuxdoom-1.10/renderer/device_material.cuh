@@ -7,8 +7,12 @@ class DeviceTexture;
 
 class DeviceMaterial {
 public:
-    __host__ explicit DeviceMaterial(DeviceTexture *diffuse)
-            : m_diffuse(diffuse), m_uv_scale(1.0f) {}
+    __host__ __device__ DeviceMaterial() : m_diffuse(nullptr) {}
+
+    __host__ __device__ explicit DeviceMaterial(DeviceTexture *diffuse)
+            : m_diffuse(diffuse) {}
+
+    __device__ __host__ const DeviceTexture *diffuse_map() const { return m_diffuse; }
 
     __device__ __host__ void set_diffuse_map(DeviceTexture *texture) { m_diffuse = texture; }
 
@@ -32,15 +36,15 @@ public:
 
     __device__ __host__ void set_translucence(float value) { m_translucence = value; }
 
-    [[nodiscard]] __device__ __host__ glm::vec2 uv_scale() const { return m_uv_scale; }
-
-    __device__ __host__ void set_uv_scale(const glm::vec2 &value) { m_uv_scale = value; }
-
-    [[nodiscard]]  __device__ std::uint8_t sample_diffuse(const glm::vec2 &uv) const;
+    [[nodiscard]]  __device__ std::uint16_t sample_diffuse(const glm::vec2 &uv) const;
 
     /*[[nodiscard]] __device__ glm::vec3 sample_normal(const glm::vec2 &uv) const;
 
     [[nodiscard]] __device__ glm::vec3 sample_roughness(const glm::vec2 &uv) const;*/
+
+    [[nodiscard]] __device__ __host__ __forceinline__ bool has_emission() const {
+        return emission().x > 0.0f || emission().y > 0.0f || emission().z > 0.0f;
+    }
 
 private:
     DeviceTexture *m_diffuse;
@@ -49,7 +53,6 @@ private:
     glm::vec3 m_emission{};
     float m_reflectivity{};
     float m_translucence{};
-    glm::vec2 m_uv_scale;
 };
 
 #endif

@@ -47,8 +47,7 @@ static const char
 #endif
 
 #include "p_inter.h"
-#include "rt_entities.cuh"
-#include "rt_raytracing.cuh"
+#include "rt_dizzy_effect.cuh"
 
 
 #define BONUSADD    6
@@ -818,6 +817,8 @@ P_DamageMobj
             player->armorpoints -= saved;
             damage -= saved;
         }
+
+        RT_PlayerDamaged(damage);
         player->health -= damage;    // mirror mobj health here for Dave
         if (player->health < 0)
             player->health = 0;

@@ -3,7 +3,7 @@
 
 struct Intersection {
     Intersection() = default;
-    DeviceTexture *texture;
+    DeviceMaterial *material;
     float u{};
     float v{};
     float distance{};

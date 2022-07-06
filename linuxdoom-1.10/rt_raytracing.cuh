@@ -9,10 +9,14 @@
 #include "d_player.h"
 #include "wad/sprites.cuh"
 #include "r_defs.h"
+#include "rt_init_options.cuh"
 
 class Scene;
+class Camera;
 namespace device {
+    extern Camera *camera;
     extern Scene *scene;
+    extern std::uint8_t *palette;
 }
 
 namespace detail {
@@ -21,7 +25,7 @@ namespace detail {
     extern wad::Wad *wad;
 }
 
-void RT_Init(char **wadfiles);
+void RT_Init(RayTracingInitOptions options);
 
 void RT_BuildScene();
 
@@ -41,15 +45,13 @@ void RT_UpdateCameraFromPlayer(player_t *player);
 
 void RT_WindowChanged();
 
-void RT_AttachToScene(SceneEntity *entity);
-
-void RT_DetachFromScene(SceneEntity *entity);
-
 void RT_VerticalDoorChanged(sector_t *sector);
 
 void RT_CeilingChanged(sector_t *sector);
 
 void RT_SectorFloorHeightChanged(sector_t *sector);
+
+int *RT_GetFrameTime();
 
 inline float RT_FixedToFloating(int value) {
     return static_cast<float>(value) / 65536.0f;

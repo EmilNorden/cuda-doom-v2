@@ -11,9 +11,10 @@ struct SceneEntity {
     int frame;
     int rotation;
     DeviceSprite sprite;
+    bool is_player;
 
-    SceneEntity(glm::vec3 pos, int frame, int rotation, DeviceSprite sprite)
-            : position(pos), frame(frame), rotation(rotation), sprite(sprite) {
+    SceneEntity(glm::vec3 pos, int frame, int rotation, DeviceSprite sprite, bool is_player = false)
+            : position(pos), frame(frame), rotation(rotation), sprite(sprite), is_player(is_player) {
 
     }
 };

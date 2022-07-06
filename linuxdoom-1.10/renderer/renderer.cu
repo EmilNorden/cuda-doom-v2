@@ -66,72 +66,101 @@ generate_unit_vector_in_cone(const glm::vec3 &cone_direction, float cone_angle, 
     return glm::rotate(cone_direction, (1.0f - (random.value() * 2.0f)) * cone_angle, tangent);
 }
 
+// Compiler will inline with optimizations, but I still opted to use __forceinline__ here to get a decent framerate when debugging
+__device__ __forceinline__ glm::vec3
+shade(const Ray &ray, Intersection &intersection, const glm::vec3 &intersection_point, Scene *scene,
+      const glm::vec3 &light_pos, DeviceMaterial *light_material) {
+    auto light_vector = light_pos - intersection_point;
+    auto light_distance = glm::length(light_vector);
+    auto light_direction = glm::normalize(light_vector);
+
+    if (glm::dot(ray.direction(), intersection.world_normal) > 0.0f) {
+        intersection.world_normal *= -1.0f;
+    }
+
+    Intersection shadow_intersection;
+    Ray shadow_ray(intersection_point + (intersection.world_normal * 0.01f), light_direction);
+    if (scene->intersect(shadow_ray, shadow_intersection, false,light_distance - 0.5f)) {
+        return glm::zero<glm::vec3>();
+    }
+
+    light_distance /= 2.0f;
+    return glm::dot(intersection.world_normal, light_direction) * light_material->emission() *
+           (1 / (light_distance * light_distance));
+}
+
 template<int N>
 __device__ glm::vec3
-trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, int depth, std::uint8_t *palette) {
+trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, bool initial_ray, int depth, std::uint8_t *palette) {
     if (depth == 0) {
         return glm::vec3(1, 1, 0);
     }
 
     Intersection intersection;
-    std::uint8_t palette_index;
-    if (scene->intersect(ray, intersection)) {
+    if (scene->intersect(ray, intersection, initial_ray)) {
 
-        palette_index = intersection.texture->sample({intersection.u, intersection.v});
+        //return intersection.world_normal;
+        auto palette_index = intersection.material->sample_diffuse({intersection.u, intersection.v});
+
+        auto diffuse = glm::vec3{
+                palette[palette_index * 3] / 255.0f,
+                palette[(palette_index * 3) + 1] / 255.0f,
+                palette[(palette_index * 3) + 2] / 255.0f,
+        };
+
+        glm::vec3 incoming_light{0.7f};
+
+        auto intersection_point = ray.origin() + (ray.direction() * intersection.distance);
+        for (int i = 0; i < scene->m_emissive_entities.count(); ++i) {
+            const auto &light = scene->m_emissive_entities[i];
+            auto light_material = light->sprite.get_material(light->frame, light->rotation);
+            if (!light_material->has_emission()) {
+                continue;
+            }
+
+            incoming_light += shade(ray, intersection, intersection_point, scene, light->position, light_material);
+        }
+
+
+        /*
+        for (int i = 0; i < scene->m_emissive_floors_ceilings.count(); ++i) {
+            const auto &light = scene->m_emissive_floors_ceilings[i];
+            auto light_material = &light->material;
+            if (!light_material->has_emission()) {
+                continue;
+            }
+
+            incoming_light += shade(ray, intersection, intersection_point, scene, light->v0, light_material);
+        }*/
+
+        if (intersection.material->reflectivity() > 0.0f) {
+            //return glm::vec3(1,0,1);
+            auto reflected_direction = glm::reflect(ray.direction(), intersection.world_normal);
+            Ray reflected_ray(intersection_point + (intersection.world_normal * 0.01f), reflected_direction);
+
+            diffuse = (1.0f - intersection.material->reflectivity()) * diffuse +
+                      (trace_ray<N>(reflected_ray, scene, random, false, depth - 1, palette) *
+                       intersection.material->reflectivity());
+        }
+
+        return (diffuse * incoming_light);
     } else {
         auto pitch = glm::half_pi<float>() - glm::asin(-ray.direction().y);
         auto yaw = fabs(std::atan2(ray.direction().x, ray.direction().z));
-        palette_index = scene->sky()->sample({yaw, pitch / glm::pi<float>()});
-    }
+        auto palette_index = scene->sky()->sample({yaw, pitch / glm::pi<float>()});
 
-    return {
-            palette[palette_index * 3] / 255.0f,
-            palette[(palette_index * 3) + 1] / 255.0f,
-            palette[(palette_index * 3) + 2] / 255.0f,
-    };
-
-    /*Square s(glm::vec3(0, 0, 0), glm::vec3(1000, 0, 0), glm::vec3(0, -100, 0), 0);
-
-    float f =0.0f;
-    float u = 0.0f;
-    float v = 0.0f;
-    if(intersects_wall(ray, s,f, u, v)) {
-        return {1,1,1};
-    }*/
-
-
-
-    // SceneEntity *entity = nullptr;
-    /*
-    if (scene->intersect(ray, intersection, &entity)) {
-
-
-        auto intersection_coordinate = ray.origin() + (ray.direction() * intersection.distance);
-        auto &material = entity->mesh()->material();
-        float w = 1.0f - intersection.u - intersection.v;
-
-        auto texcoord0 = entity->mesh()->texture_coordinates()[intersection.i0];
-        auto texcoord1 = entity->mesh()->texture_coordinates()[intersection.i1];
-        auto texcoord2 = entity->mesh()->texture_coordinates()[intersection.i2];
-
-        auto texture_uv = texcoord0 * w + texcoord1 * intersection.u + texcoord2 * intersection.v;
-
-        auto palette_index = material.sample_diffuse(texture_uv);
         return {
-                palette[(palette_index*3)] / 255.0f,
-                palette[(palette_index*3) + 1] / 255.0f,
-                palette[(palette_index*3) + 2] / 255.0f};
-    } else {
-        return {1,0,1};
+                palette[palette_index * 3] / 255.0f,
+                palette[(palette_index * 3) + 1] / 255.0f,
+                palette[(palette_index * 3) + 2] / 255.0f,
+        };
+
     }
-*/
-
-    return {1, 0, 1};
-
 }
 
 __global__ void
-cudaRender(float *g_odata, Camera *camera, Scene *scene, RandomGeneratorPool *random_pool, std::uint8_t *palette, int width, int height,
+cudaRender(float *g_odata, Camera *camera, Scene *scene, RandomGeneratorPool *random_pool, std::uint8_t *palette,
+           int width, int height,
            size_t sample) {
     constexpr int PathLength = 1;
 
@@ -152,7 +181,7 @@ cudaRender(float *g_odata, Camera *camera, Scene *scene, RandomGeneratorPool *ra
     if (x < width && y < height) {
         auto ray = camera->cast_perturbed_ray(x, y, random);
 
-        auto color = trace_ray<PathLength>(ray, scene, random, 3, palette);
+        auto color = trace_ray<PathLength>(ray, scene, random, true, 3, palette);
         color = glm::clamp(color, {0, 0, 0}, {1, 1, 1});
 
         glm::vec3 previous_color;
@@ -165,7 +194,8 @@ cudaRender(float *g_odata, Camera *camera, Scene *scene, RandomGeneratorPool *ra
 
 }
 
-void Renderer::render(Camera *camera, Scene *scene, RandomGeneratorPool *random, std::uint8_t *palette, int width, int height, size_t sample) {
+void Renderer::render(Camera *camera, Scene *scene, RandomGeneratorPool *random, std::uint8_t *palette, int width,
+                      int height, size_t sample) {
     dim3 block(16, 16, 1);
     dim3 grid(std::ceil(width / (float) block.x), std::ceil(height / (float) block.y), 1);
     cudaRender<<<grid, block>>>((float *) m_cuda_render_buffer, camera, scene, random, palette, width,
@@ -179,6 +209,8 @@ void Renderer::render(Camera *camera, Scene *scene, RandomGeneratorPool *random,
     auto size_tex_data = sizeof(GLfloat) * width * height * 4;
     cuda_assert(cudaMemcpyToArray(texture_ptr, 0, 0, m_cuda_render_buffer, size_tex_data, cudaMemcpyDeviceToDevice));
     cuda_assert(cudaGraphicsUnmapResources(1, &m_cuda_tex_resource, 0));
+
+    cudaDeviceSynchronize();
 }
 
 Renderer::Renderer(GLuint gl_texture, int width, int height)

@@ -349,12 +349,11 @@ void I_StartTic(void) {
 // I_FinishUpdate
 //
 void I_FinishUpdate(void) {
-    if(RT_IsEnabled()) {
+    if (RT_IsEnabled()) {
         RT_Present();
     }
-    else {
-        V_Render();
-    }
+    V_Render();
+
 
     V_Swap();
 /*
@@ -587,7 +586,6 @@ void UploadNewPalette(Colormap cmap, byte *palette)
 // I_SetPalette
 //
 void I_SetPalette(byte *palette) {
-    int ff = 34;
     V_UpdatePalette(palette);
     RT_UpdatePalette(palette);
     /*
