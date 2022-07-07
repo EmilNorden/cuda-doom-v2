@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: cuda-toolkit
+      uses: Jimver/cuda-toolkit@v0.2.7
+
     - uses: actions/checkout@v3
 
     - name: Configure CMake
