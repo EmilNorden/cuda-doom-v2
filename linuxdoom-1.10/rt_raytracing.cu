@@ -176,7 +176,7 @@ void RT_RenderSample() {
             device::palette,
             320,
             240,
-            0);
+            /*detail::current_sample*/ 0);
     detail::current_sample++;
 
     auto end_time = std::chrono::steady_clock::now();

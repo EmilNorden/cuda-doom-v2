@@ -33,13 +33,21 @@ Scene::Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceili
     std::cout << "Building scene with " << walls.size() << " walls and" << floors_ceilings.size()
               << " floor/ceiling triangles\n";
 
-    std::vector<Triangle *> emissive_floors_ceilings;
+    std::vector<LightInfo<Triangle *>> emissive_floors_ceilings;
     for (auto triangle: floors_ceilings) {
         if (triangle->material.has_emission()) {
-            emissive_floors_ceilings.push_back(triangle);
+            emissive_floors_ceilings.emplace_back(triangle, triangle->material.emission());
         }
     }
     m_emissive_floors_ceilings.reset(emissive_floors_ceilings);
+
+    std::vector<LightInfo<Square *>> emissive_walls;
+    for (auto square: walls) {
+        if (square->material.has_emission()) {
+            emissive_walls.emplace_back(square, square->material.emission());
+        }
+    }
+    m_emissive_walls.reset(emissive_walls);
 
 
     bool valid_axes[3] = {true, false, true};
@@ -435,11 +443,13 @@ void Scene::add_light(SceneEntity *entity) {
         return;
     }
 
-    m_emissive_entities.push_back(entity);
+    m_emissive_entities.push_back(LightInfo(entity, entity->sprite.calculate_max_emission()));
 }
 
 void Scene::remove_light(SceneEntity *entity) {
-    m_emissive_entities.remove(entity);
+    m_emissive_entities.remove_by([&](LightInfo<SceneEntity*> & item) {
+        return item.geometry() == entity;
+    });
 }
 
 void Scene::add_entities(const std::vector<SceneEntity *> &entities) {

@@ -69,10 +69,19 @@ generate_unit_vector_in_cone(const glm::vec3 &cone_direction, float cone_angle, 
 // Compiler will inline with optimizations, but I still opted to use __forceinline__ here to get a decent framerate when debugging
 __device__ __forceinline__ glm::vec3
 shade(const Ray &ray, Intersection &intersection, const glm::vec3 &intersection_point, Scene *scene,
-      const glm::vec3 &light_pos, DeviceMaterial *light_material) {
+      const glm::vec3 &light_pos, DeviceMaterial *light_material, float radius_of_influence = FLT_MAX) {
     auto light_vector = light_pos - intersection_point;
-    auto light_distance = glm::length(light_vector);
     auto light_direction = glm::normalize(light_vector);
+
+    auto theta = glm::dot(intersection.world_normal, light_direction);
+    if(theta <= 0.0f){
+        return glm::zero<glm::vec3>();
+    }
+
+    auto light_distance = glm::length(light_vector);
+    if (light_distance > radius_of_influence) {
+        return glm::zero<glm::vec3>();
+    }
 
     if (glm::dot(ray.direction(), intersection.world_normal) > 0.0f) {
         intersection.world_normal *= -1.0f;
@@ -80,12 +89,12 @@ shade(const Ray &ray, Intersection &intersection, const glm::vec3 &intersection_
 
     Intersection shadow_intersection;
     Ray shadow_ray(intersection_point + (intersection.world_normal * 0.01f), light_direction);
-    if (scene->intersect(shadow_ray, shadow_intersection, false,light_distance - 0.5f)) {
+    if (scene->intersect(shadow_ray, shadow_intersection, false, light_distance - 0.5f)) {
         return glm::zero<glm::vec3>();
     }
 
     light_distance /= 2.0f;
-    return glm::dot(intersection.world_normal, light_direction) * light_material->emission() *
+    return theta * light_material->emission() *
            (1 / (light_distance * light_distance));
 }
 
@@ -113,25 +122,36 @@ trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, bool initial_ra
         auto intersection_point = ray.origin() + (ray.direction() * intersection.distance);
         for (int i = 0; i < scene->m_emissive_entities.count(); ++i) {
             const auto &light = scene->m_emissive_entities[i];
-            auto light_material = light->sprite.get_material(light->frame, light->rotation);
+            auto light_material = light.geometry()->sprite.get_material(light.geometry()->frame, light.geometry()->rotation);
             if (!light_material->has_emission()) {
                 continue;
             }
 
-            incoming_light += shade(ray, intersection, intersection_point, scene, light->position, light_material);
+            incoming_light += shade(ray, intersection, intersection_point, scene, light.geometry()->position, light_material);
         }
 
 
-        /*
         for (int i = 0; i < scene->m_emissive_floors_ceilings.count(); ++i) {
             const auto &light = scene->m_emissive_floors_ceilings[i];
-            auto light_material = &light->material;
+            auto light_material = &light.geometry()->material;
             if (!light_material->has_emission()) {
                 continue;
             }
 
-            incoming_light += shade(ray, intersection, intersection_point, scene, light->v0, light_material);
-        }*/
+            incoming_light += shade(ray, intersection, intersection_point, scene, light.geometry()->v0, light_material,
+                                    light.radius_of_influence());
+        }
+
+        for (int i = 0; i < scene->m_emissive_walls.count(); ++i) {
+            const auto &light = scene->m_emissive_walls[i];
+            auto light_material = &light.geometry()->material;
+            if (!light_material->has_emission()) {
+                continue;
+            }
+
+            incoming_light += shade(ray, intersection, intersection_point, scene, light.geometry()->top_left, light_material,
+                                    light.radius_of_influence());
+        }
 
         if (intersection.material->reflectivity() > 0.0f) {
             //return glm::vec3(1,0,1);

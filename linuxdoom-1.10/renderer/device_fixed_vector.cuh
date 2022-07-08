@@ -41,6 +41,17 @@ public:
         return false;
     }
 
+    bool remove_by(const std::function<bool(T&)> &predicate) {
+        for (int i = 0; i < m_count; ++i) {
+            if (predicate(m_items[i])) {
+                m_items[i] = m_items[m_count - 1];
+                m_count--;
+                return true;
+            }
+        }
+        return false;
+    }
+
     __host__ void reset() {
         if (m_items) {
             cudaFree(m_items);

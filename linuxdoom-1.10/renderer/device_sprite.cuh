@@ -34,6 +34,15 @@ public:
         return max;
     }
 
+    [[nodiscard]] glm::vec3 calculate_max_emission() const {
+        auto max = m_rotations[0].emission();
+        for(int i = 1; i < 8; ++i) {
+            max = glm::max(max, m_rotations[i].emission());
+        }
+
+        return max;
+    }
+
     bool has_emissive_material() const {
         for (auto & mat : m_rotations) {
             if (mat.emission().x > 0 || mat.emission().y > 0 || mat.emission().z > 0) {
@@ -76,18 +85,19 @@ public:
         return max;
     }
 
+    [[nodiscard]] glm::vec3 calculate_max_emission() const {
+        auto max = m_frames[0].calculate_max_emission();
+        for (int i = 0; i < m_frame_count; ++i) {
+            max = glm::max(max, m_frames[i].calculate_max_emission());
+        }
+
+        return max;
+    }
+
     // TODO: Only for debugging purposes
     [[nodiscard]] size_t frame_count() const { return m_frame_count; }
 
     [[nodiscard]] bool has_emissive_frames() const {
-        /*for (int i = 0; i < m_frame_count; ++i) {
-            if (m_frames[i].has_emissive_material()) {
-                return true;
-            }
-        }
-
-        return false;*/
-
         return m_has_emissive_frames;
     }
 

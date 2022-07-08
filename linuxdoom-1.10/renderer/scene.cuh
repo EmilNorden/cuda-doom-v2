@@ -37,6 +37,21 @@ enum class SplitComparison {
     Both
 };
 
+template<typename T>
+class LightInfo {
+public:
+    LightInfo(T geometry, const glm::vec3 &emission) : m_geometry(geometry), m_radius_of_influence(0.0) {
+        constexpr float influence_limit = 0.02f;
+        m_radius_of_influence = glm::sqrt(glm::length(emission) / influence_limit);
+    }
+
+    __device__ __host__ inline const T geometry() const { return m_geometry; }
+    __device__ inline float radius_of_influence() const { return m_radius_of_influence; }
+private:
+    T m_geometry;
+    float m_radius_of_influence;
+};
+
 class Scene {
 public:
     Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceilings, DeviceTexture *sky);
@@ -45,8 +60,9 @@ public:
 
     [[nodiscard]] __device__ const DeviceTexture *sky() const { return m_sky; }
 
-    DeviceFixedVector<SceneEntity *> m_emissive_entities;
-    DeviceFixedVector<Triangle *> m_emissive_floors_ceilings;
+    DeviceFixedVector<LightInfo<SceneEntity *>> m_emissive_entities;
+    DeviceFixedVector<LightInfo<Triangle *>> m_emissive_floors_ceilings;
+    DeviceFixedVector<LightInfo<Square *>> m_emissive_walls;
 
     /*SceneEntity **m_emissive_entities;
     size_t m_emissive_entities_count;*/
@@ -64,7 +80,7 @@ public:
     void refresh_entity(SceneEntity *entity);
 
     void prefetch_entities() {
-        for(int i = 0; i < m_entities_root->items.count(); ++i) {
+        for (int i = 0; i < m_entities_root->items.count(); ++i) {
             cudaMemPrefetchAsync(m_entities_root->items[i], sizeof(SceneEntity), 0);
         }
     }
