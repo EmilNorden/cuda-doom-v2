@@ -12,15 +12,19 @@ public:
     }
 
 
-    DeviceStack(const DeviceStack&) = delete;
+    DeviceStack(const DeviceStack &) = delete;
 
     __device__ __host__  void push(const T &item) {
+#ifdef DOOM_ASSERTIONS
         assert(m_size < Capacity);
+#endif
         m_data[m_size++] = item;
     }
 
     __device__ __host__  T pop() {
+#ifdef DOOM_ASSERTIONS
         assert(m_size > 0);
+#endif
         return m_data[--m_size];
     }
 

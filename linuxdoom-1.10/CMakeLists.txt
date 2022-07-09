@@ -214,4 +214,5 @@ target_compile_options(doom_lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
 
 target_compile_options(doom_lib PRIVATE $<$<CONFIG:DEBUG>:
         -g
+        -DDOOM_ASSERTIONS
         >)
