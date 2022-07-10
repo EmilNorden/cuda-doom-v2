@@ -4,7 +4,7 @@
 #include <algorithm>
 
 
-constexpr size_t EntityGroupSize = 1500;
+constexpr size_t EntityGroupSize = 200;
 constexpr bool entity_valid_axes[3] = {true, false, true};
 
 template<typename T>
