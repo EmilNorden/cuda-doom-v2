@@ -29,6 +29,7 @@ struct EmissiveSurface {
     glm::vec3 world_coordinate{};
     glm::vec3 diffuse_color;
     float roughness{};
+    bool has_normal;
     // SceneEntity *entity; // Remove this later and compare intersections using coordinates or something
 };
 
@@ -89,7 +90,8 @@ shade(const Ray &ray, Intersection &intersection, const glm::vec3 &intersection_
 
     Intersection shadow_intersection;
     Ray shadow_ray(intersection_point + (intersection.world_normal * 0.01f), light_direction);
-    if (scene->intersect(shadow_ray, shadow_intersection, false, light_distance - 0.5f)) {
+
+    if(scene->intersect_any(shadow_ray, light_distance - 0.5f)) {
         return glm::zero<glm::vec3>();
     }
 
@@ -98,6 +100,7 @@ shade(const Ray &ray, Intersection &intersection, const glm::vec3 &intersection_
            (1 / (light_distance * light_distance));
 }
 
+//#define GLOBAL_ILLUMINATION
 template<int N>
 __device__ glm::vec3
 trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, bool initial_ray, int depth, std::uint8_t *palette) {
@@ -117,9 +120,32 @@ trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, bool initial_ra
                 palette[(palette_index * 3) + 2] / 255.0f,
         };
 
-        glm::vec3 incoming_light{0.7f};
-
+        glm::vec3 incoming_light{0.45f};
         auto intersection_point = ray.origin() + (ray.direction() * intersection.distance);
+#ifdef GLOBAL_ILLUMINATION
+
+        for (int i = 0; i < scene->m_emissive_entities.count(); ++i) {
+            const auto &light = scene->m_emissive_entities[i];
+            auto light_material = light.geometry()->sprite.get_material(light.geometry()->frame, light.geometry()->rotation);
+            if (!light_material->has_emission()) {
+                continue;
+            }
+
+            incoming_light += shade(ray, intersection, intersection_point, scene, light.geometry()->position + glm::vec3(0, light_material->diffuse_map()->height(), 0), light_material);
+        }
+
+        /*auto hemi = geom::random_unit_in_hemisphere(intersection.world_normal, random);
+        Ray hemi_ray(intersection_point + intersection.world_normal * 0.1f, hemi);
+        const float p = 1.0f / (2.0 * glm::pi<float>());
+
+        float cos_theta = glm::dot(hemi, intersection.world_normal);
+        auto incoming = trace_ray<N>(hemi_ray, scene, random, false, depth-1, palette);
+        return intersection.material->emission() + (diffuse * incoming  * cos_theta * p) + (diffuse * incoming_light);*/
+        return /*intersection.material->emission() +*/ (diffuse * incoming_light);
+
+#endif
+
+#ifndef GLOBAL_ILLUMINATION
         for (int i = 0; i < scene->m_emissive_entities.count(); ++i) {
             const auto &light = scene->m_emissive_entities[i];
             auto light_material = light.geometry()->sprite.get_material(light.geometry()->frame, light.geometry()->rotation);
@@ -164,6 +190,8 @@ trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, bool initial_ra
         }
 
         return (diffuse * incoming_light);
+#endif
+
     } else {
         auto pitch = glm::half_pi<float>() - glm::asin(-ray.direction().y);
         auto yaw = fabs(std::atan2(ray.direction().x, ray.direction().z));
@@ -176,6 +204,18 @@ trace_ray(const Ray &ray, Scene *scene, RandomGenerator &random, bool initial_ra
         };
 
     }
+}
+
+template <int N>
+__device__ LightPath<N> generate_light_path(Scene *scene, RandomGenerator &random) {
+    LightPath<N> result;
+
+    auto idx = random.value() * (scene->m_emissive_entities.count() - 1);
+    auto light = scene->m_emissive_entities[idx];
+    result.surfaces[0].has_normal = false;
+    result.surfaces[0].world_coordinate = light.geometry()->position;
+    result.surfaces[0].emission = light.geometry()->get_current_material()->emission();
+
 }
 
 __global__ void

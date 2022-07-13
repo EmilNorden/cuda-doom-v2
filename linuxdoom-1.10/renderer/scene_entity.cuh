@@ -17,6 +17,10 @@ struct SceneEntity {
             : position(pos), frame(frame), rotation(rotation), sprite(sprite), is_player(is_player) {
 
     }
+
+    [[nodiscard]] DeviceMaterial *get_current_material() {
+        return sprite.get_material(frame, rotation);
+    }
 };
 
 __device__ bool intersects_scene_entity(const Ray &ray, SceneEntity *entity, float &hit_distance, float &u, float &v);

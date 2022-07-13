@@ -13,7 +13,7 @@ public:
         std::copy(std::begin(offsets), std::end(offsets), m_offsets);
     }
 
-    __device__ inline DeviceMaterial *get_material(int rotation) {
+    __device__ __host__ inline DeviceMaterial *get_material(int rotation) {
         assert(rotation < 8);
         return &m_rotations[rotation];
     }
@@ -65,7 +65,7 @@ class DeviceSprite {
 public:
     explicit DeviceSprite(const std::vector<DeviceSpriteFrame> &frames);
 
-    __device__ inline DeviceMaterial *get_material(int frame, int rotation) {
+    __device__ __host__ inline DeviceMaterial *get_material(int frame, int rotation) {
         assert(frame < m_frame_count);
         return m_frames[frame].get_material(rotation);
     }

@@ -57,6 +57,7 @@ public:
     Scene(std::vector<Square *> &walls, std::vector<Triangle *> &floors_ceilings, DeviceTexture *sky);
 
     __device__ bool intersect(const Ray &ray, Intersection &intersection, bool ignore_player, float tmax = FLT_MAX);
+    __device__ bool intersect_any(const Ray &ray, float tmax = FLT_MAX);
 
     [[nodiscard]] __device__ const DeviceTexture *sky() const { return m_sky; }
 
@@ -92,11 +93,20 @@ private:
 
     DeviceTexture *m_sky;
 
+    template <bool AnyHit>
     __device__ bool intersect_walls(const Ray &ray, Intersection &intersection);
 
+    template <bool AnyHit>
     __device__ bool intersect_floors_and_ceilings(const Ray &ray, Intersection &intersection);
 
+    template <bool AnyHit>
     __device__ bool intersect_entities(const Ray &ray, Intersection &intersection, bool ignore_player);
+
+    __device__ bool intersect_walls_any(const Ray &ray, float tmax);
+
+    __device__ bool intersect_floors_and_ceilings_any(const Ray &ray, float tmax);
+
+    __device__ bool intersect_entities_any(const Ray &ray, float tmax);
 
     void add_entity(SceneEntity *entity, TreeNode<SceneEntity *> &node);
 

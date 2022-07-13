@@ -199,6 +199,7 @@ CompareRangeWithPlane(const Ray &ray, float tmin, float tmax, TreeNode<T> *node)
 }
 
 
+template<bool AnyHit>
 __device__ bool
 intersects_walls_node(const Ray &ray, TreeNode<Square *> *node, Intersection &intersection, float tmax) {
     auto success = false;
@@ -210,6 +211,9 @@ intersects_walls_node(const Ray &ray, TreeNode<Square *> *node, Intersection &in
         if (intersects_wall(ray, node->items[i], hit_distance, u, v, normal) && hit_distance < tmax) {
             if (node->items[i]->material.sample_diffuse({u, v}) > 0xFF) {
                 continue;
+            }
+            if (AnyHit) {
+                return true;
             }
             tmax = hit_distance;
             intersection.distance = hit_distance;
@@ -225,6 +229,7 @@ intersects_walls_node(const Ray &ray, TreeNode<Square *> *node, Intersection &in
     return success;
 }
 
+template <bool AnyHit>
 __device__ bool
 intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle *> *node, Intersection &intersection,
                                     float tmax) {
@@ -234,6 +239,9 @@ intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle *> *node, 
         float u = 0.0f;
         float v = 0.0f;
         if (intersects_triangle(ray, node->items[i], hit_distance, u, v) && hit_distance < tmax) {
+            if(AnyHit) {
+                return true;
+            }
             tmax = hit_distance;
             intersection.distance = hit_distance;
             intersection.u = u;
@@ -253,6 +261,7 @@ intersects_floors_and_ceilings_node(const Ray &ray, TreeNode<Triangle *> *node, 
     return success;
 }
 
+template <bool AnyHit>
 __device__ bool Scene::intersect_walls(const Ray &ray, Intersection &intersection) {
     constexpr int StackSize = 20;
 
@@ -271,7 +280,7 @@ __device__ bool Scene::intersect_walls(const Ray &ray, Intersection &intersectio
         auto tmax = current.tmax;
 
         if (is_leaf(node)) {
-            if (intersects_walls_node(ray, node, intersection, tmax)) {
+            if (intersects_walls_node<AnyHit>(ray, node, intersection, tmax)) {
                 return true;
             }
         } else {
@@ -301,6 +310,7 @@ __device__ bool Scene::intersect_walls(const Ray &ray, Intersection &intersectio
     return false;
 }
 
+template <bool AnyHit>
 __device__ bool Scene::intersect_floors_and_ceilings(const Ray &ray, Intersection &intersection) {
     constexpr int StackSize = 20;
 
@@ -319,7 +329,7 @@ __device__ bool Scene::intersect_floors_and_ceilings(const Ray &ray, Intersectio
         auto tmax = current.tmax;
 
         if (is_leaf(node)) {
-            if (intersects_floors_and_ceilings_node(ray, node, intersection, tmax)) {
+            if (intersects_floors_and_ceilings_node<AnyHit>(ray, node, intersection, tmax)) {
                 return true;
             }
         } else {
@@ -349,6 +359,7 @@ __device__ bool Scene::intersect_floors_and_ceilings(const Ray &ray, Intersectio
     return false;
 }
 
+template <bool AnyHit>
 __device__ bool
 intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersection &intersection, float tmax,
                        bool ignore_player) {
@@ -367,6 +378,11 @@ intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersecti
             if (material->sample_diffuse({u, v}) > 0xFF) {
                 continue;
             }
+
+            if(AnyHit) {
+                return true;
+            }
+
             tmax = hit_distance;
             intersection.u = u;
             intersection.v = v;
@@ -380,6 +396,7 @@ intersects_entity_node(const Ray &ray, TreeNode<SceneEntity *> *node, Intersecti
     return success;
 }
 
+template <bool AnyHit>
 __device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersection, bool ignore_player) {
     constexpr int StackSize = 20;
 
@@ -398,7 +415,7 @@ __device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersec
         auto tmax = current.tmax;
 
         if (is_leaf(node)) {
-            if (intersects_entity_node(ray, node, intersection, tmax, ignore_player)) {
+            if (intersects_entity_node<AnyHit>(ray, node, intersection, tmax, ignore_player)) {
                 return true;
             }
         } else {
@@ -431,11 +448,36 @@ __device__ bool Scene::intersect_entities(const Ray &ray, Intersection &intersec
 __device__ bool Scene::intersect(const Ray &ray, Intersection &intersection, bool ignore_player, float tmax) {
     intersection.distance = tmax;
 
-    auto intersects_walls = intersect_walls(ray, intersection);
-    auto intersects_floors_or_ceilings = intersect_floors_and_ceilings(ray, intersection);
-    auto intersects_entities = intersect_entities(ray, intersection, ignore_player);
+    auto intersects_walls = intersect_walls<false>(ray, intersection);
+    auto intersects_floors_or_ceilings = intersect_floors_and_ceilings<false>(ray, intersection);
+    auto intersects_entities = intersect_entities<false>(ray, intersection, ignore_player);
     //return intersects_floors_or_ceilings;
     return intersects_walls || intersects_floors_or_ceilings || intersects_entities;
+}
+
+
+__device__ bool Scene::intersect_walls_any(const Ray &ray, float tmax) {
+    Intersection intersection;
+    intersection.distance = tmax;
+    return intersect_walls<true>(ray, intersection);
+}
+
+__device__ bool Scene::intersect_floors_and_ceilings_any(const Ray &ray, float tmax) {
+    Intersection intersection;
+    intersection.distance = tmax;
+    return intersect_floors_and_ceilings<true>(ray, intersection);
+}
+
+__device__ bool Scene::intersect_entities_any(const Ray &ray, float tmax) {
+    Intersection intersection;
+    intersection.distance = tmax;
+    return intersect_entities<true>(ray, intersection, false);
+}
+
+__device__ bool Scene::intersect_any(const Ray &ray, float tmax) {
+    return intersect_walls_any(ray, tmax) ||
+           intersect_floors_and_ceilings_any(ray, tmax) ||
+           intersect_entities_any(ray, tmax);
 }
 
 void Scene::add_light(SceneEntity *entity) {
@@ -447,7 +489,7 @@ void Scene::add_light(SceneEntity *entity) {
 }
 
 void Scene::remove_light(SceneEntity *entity) {
-    m_emissive_entities.remove_by([&](LightInfo<SceneEntity*> & item) {
+    m_emissive_entities.remove_by([&](LightInfo<SceneEntity *> &item) {
         return item.geometry() == entity;
     });
 }

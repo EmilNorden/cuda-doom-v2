@@ -35,13 +35,14 @@ SceneEntity *RT_CreateMapThing(mobjtype_t type, mobj_t *obj) {
         return nullptr;
     }
 
-    auto frame = spawn_state->frame;
+    auto frame = spawn_state->frame & FF_FRAMEMASK;
     auto position = glm::vec3(
             RT_FixedToFloating(obj->x),
             RT_FixedToFloating(obj->z),
             RT_FixedToFloating(obj->y));
+    //position.y += sprite.value().get_material(frame, 0)->diffuse_map()->height();
     return create_device_type<SceneEntity>(position,
-                                           frame & FF_FRAMEMASK,
+                                           frame,
                                            0,
                                            sprite.value(),
                                            type == MT_PLAYER);
@@ -61,8 +62,10 @@ void RT_UpdateEntityPosition(mobj_t *obj) {
         return;
     }
 
-    obj->scene_entity->sprite = RT_GetDeviceSprite(obj->sprite).value();
-    obj->scene_entity->frame = obj->frame & FF_FRAMEMASK;
+    auto sprite = RT_GetDeviceSprite(obj->sprite).value();
+    auto frame = obj->frame & FF_FRAMEMASK;
+    obj->scene_entity->sprite = sprite;
+    obj->scene_entity->frame = frame;
     auto ang = R_PointToAngle(obj->x, obj->y);
     auto rot = (ang - obj->angle + (unsigned) (ANG45 / 2) * 9) >> 29;
     obj->scene_entity->rotation = rot;
@@ -73,7 +76,8 @@ void RT_UpdateEntityPosition(mobj_t *obj) {
             RT_FixedToFloating(obj->y)
     };
 
-    if(new_position == obj->scene_entity->position) {
+
+    if (new_position == obj->scene_entity->position) {
         return;
     }
     obj->scene_entity->position = new_position;
