@@ -314,6 +314,14 @@ void handle_gamepad_button_down(int button) {
 
 void handle_gamepad_button_up(int button) {
     int number_of_mappings = sizeof(gamepad_mappings) / sizeof(gamepad_button_mapping_t);
+    if(button == 2) {
+        if(RT_IsEnabled()) {
+            RT_Disable();
+        }
+        else {
+            RT_Enable();
+        }
+    }
     if (button == 5) {
         P_NextWeapon(&players[0]);
     } else if (button == 4) {
@@ -323,7 +331,7 @@ void handle_gamepad_button_up(int button) {
             fprintf(stderr, "No haptic :(\n");
         }
 
-        SDL_HapticEffect effect;
+        /*SDL_HapticEffect effect;
         // Create the effect
         SDL_memset(&effect, 0, sizeof(SDL_HapticEffect)); // 0 is safe default
         effect.type = SDL_HAPTIC_SINE;
@@ -340,11 +348,11 @@ void handle_gamepad_button_up(int button) {
 
         // Test the effect
         SDL_HapticRunEffect(haptic[0], effect_id, 1);
-        SDL_Delay(5000); // Wait for the effect to finish
+        //SDL_Delay(5000); // Wait for the effect to finish
 
         // We destroy the effect, although closing the device also does this
-        SDL_HapticDestroyEffect(haptic[0], effect_id);
-
+        //SDL_HapticDestroyEffect(haptic[0], effect_id);
+*/
     }
     for (int i = 0; i < number_of_mappings; ++i) {
         if (gamepad_mappings[i].gamepad_button == button) {
@@ -385,7 +393,7 @@ static void handle_gamepad_axis(SDL_JoyAxisEvent *gamepad_event) {
         }
     } else if (gamepad_event->axis == 1) {
         gamepad_left_stick_y = normalize_axis_value(gamepad_event->value);
-    } else if (gamepad_event->axis == 2) {
+    } else if (gamepad_event->axis == 3) {
         gamepad_right_stick_x = normalize_axis_value(gamepad_event->value);
     }
 }
