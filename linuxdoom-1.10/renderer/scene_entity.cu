@@ -14,7 +14,7 @@ __device__ bool intersects_scene_entity(const Ray &ray, SceneEntity *entity, flo
 
     auto top_left = thing_pos - (bitangent * (width * 0.5f));
     top_left.y += height;
-    //top_left.x -= sprite_offsets.x;
+
 
     auto uv_scale = glm::vec2(1.0f / width, 1.0f / height);
 
@@ -22,7 +22,5 @@ __device__ bool intersects_scene_entity(const Ray &ray, SceneEntity *entity, flo
 
     glm::vec3 normal;
     auto result = intersects_wall(ray, &s, hit_distance, u , v, normal);
-    //u += uv_scale.x * (1.0f /static_cast<float>(sprite_offsets.x));
-    //v += uv_scale.y * (1.0f /static_cast<float>(sprite_offsets.y));
     return result;
 }
