@@ -1,9 +1,9 @@
 #include "midi_converter.h"
 #include "mus_parser.h"
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
+#include <cstdint>
 
 static inline uint16_t Reverse16(uint16_t value) {
     return (((value & 0x00FF) << 8) |
@@ -146,7 +146,7 @@ static void write_event(binary_writer_t *writer, mus_event_t* event) {
             // MUS uses the range 0-255, 128 being no bend
             // MIDI uses the range 0-16384, 8192 being no bend.
             // I need to transform the value to the new range
-            uint16_t bend = (uint16_t) (((float) event->pitch_bend->value / 128.0f) * 16384);
+            auto bend = (uint16_t) (((float) event->pitch_bend->value / 128.0f) * 16384);
             bw_write16(writer, bend);
             break;
         }
@@ -235,4 +235,13 @@ void convert_mus_to_midi(struct mus_file *mus, midi_data_t *out_midi) {
 
     out_midi->data = writer.data;
     out_midi->length = writer.write_position;
+}
+
+bool is_midi(void *data, int length) {
+    if(length < 4) {
+        return false;
+    }
+
+    auto *header = reinterpret_cast<std::int32_t*>(data);
+    return *header == 0x6468544d;
 }

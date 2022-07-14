@@ -257,7 +257,7 @@ void S_Start(void) {
 
 static void ConvertMonoToStereo(sfxinfo_t *sfx) {
     int new_data_len = sfx->data_len * 2;
-    byte *new_data = (byte*)malloc(new_data_len);
+    byte *new_data = (byte *) malloc(new_data_len);
     byte *write_ptr = new_data;
     byte *read_ptr = (byte *) sfx->data;
     for (int i = 0; i < sfx->data_len; ++i) {
@@ -378,7 +378,7 @@ S_StartSoundAtVolume
     }
 
     if (!sfx->chunk) {
-        sfx->chunk = Mix_QuickLoad_RAW((Uint8*)sfx->data, sfx->data_len);
+        sfx->chunk = Mix_QuickLoad_RAW((Uint8 *) sfx->data, sfx->data_len);
     }
 
     // I think DOOM volumes ranges from 0-15, whereas SDL Mixer volume ranges from 0-128. So I transform the ranges.
@@ -550,7 +550,7 @@ void S_UpdateSounds(void *listener_p) {
                 //  or modify their params
                 if (c->origin && listener_p != c->origin) {
                     audible = S_AdjustSoundParams(listener,
-                                                  (mobj_t*)c->origin,
+                                                  (mobj_t *) c->origin,
                                                   &volume,
                                                   &sep,
                                                   &pitch);
@@ -635,16 +635,24 @@ S_ChangeMusic
     int len = W_LumpLength(music->lumpnum);
     music->data = (void *) W_CacheLumpNum(music->lumpnum, PU_MUSIC);
     music->handle = I_RegisterSong(music->data);
-    mus_file_t *m = mus_parse(music->data, len);
     midi_data_t midi;
-    convert_mus_to_midi(m, &midi);
+    if (is_midi(music->data, len)) {
+        midi.data = music->data;
+        midi.length = len;
+    } else {
+        mus_file_t *m = mus_parse(music->data, len);
+
+        convert_mus_to_midi(m, &midi);
+        mus_free(m);
+    }
+
 
 // #if DEBUG_MUSIC
     FILE *f = fopen("./music.mid", "wb");
     fwrite(midi.data, midi.length, 1, f);
     fclose(f);
 // #endif
-    mus_free(m);
+
 
 
     SDL_RWops *rw = SDL_RWFromMem(midi.data, midi.length);
