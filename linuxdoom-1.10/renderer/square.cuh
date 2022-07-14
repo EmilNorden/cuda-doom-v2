@@ -15,6 +15,7 @@ struct Square {
               vertical_vec(glm::normalize(vertical_vec)),
               horizontal_len(glm::length(horizontal_vec)),
               vertical_len(glm::length(vertical_vec)),
+              normal(glm::normalize(glm::cross(horizontal_vec, vertical_vec))),
               uv_scale(uv_scale),
               uv_offset(0.0f),
               material(material),
@@ -25,6 +26,7 @@ struct Square {
     glm::vec3 top_left;
     glm::vec3 horizontal_vec;
     glm::vec3 vertical_vec;
+    glm::vec3 normal;
     glm::vec2 uv_scale;
     float horizontal_len;
     float vertical_len;
