@@ -3,7 +3,7 @@
 
 // TODO: Temporarily making this __host__. Not needed, remove later
 __host__ __device__ bool intersects_wall(const Ray &ray, Square* wall, float &hit_distance, float &u, float &v, glm::vec3 &out_normal) {
-    auto N = wall->normal;
+    auto N = glm::vec3(wall->normal.x, 0, wall->normal.y);
     // TODO: INvestigate if pre-computed normals will cause an issue with moving platforms
     //auto N = glm::normalize(glm::cross(wall->horizontal_vec, wall->vertical_vec));
 
