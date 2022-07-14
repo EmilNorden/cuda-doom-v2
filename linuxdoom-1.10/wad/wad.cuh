@@ -37,7 +37,7 @@ namespace wad {
         [[nodiscard]] Lump get_lump(std::string_view name);
 
     private:
-        std::ifstream m_file;
+        std::vector<std::uint8_t> m_data;
         std::vector<impl::DirectoryEntry> m_directory;
     };
 }

@@ -12,7 +12,7 @@ std::string read_fixed_length_string(std::ifstream &file) {
 }
 
 namespace wad {
-    impl::DirectoryEntry read_directory_entry(std::ifstream &file) {
+    impl::DirectoryEntry read_directory_entry(std::ifstream &file, int additional_offset) {
         int offset;
         file.read(reinterpret_cast<char *>(&offset), sizeof(int));
 
@@ -22,39 +22,49 @@ namespace wad {
         auto name = read_fixed_length_string<8>(file);
 
         return impl::DirectoryEntry{
-                offset,
+                offset + additional_offset,
                 size,
                 name
         };
     }
 
     Wad::Wad(const std::vector<std::filesystem::path> &paths) {
-        for(const auto& path : paths) {
-            m_file = std::ifstream(path, std::ios::in | std::ios::binary);
+        for (const auto &path: paths) {
+            std::ifstream file(path, std::ios::in | std::ios::binary);
 
-            auto id = read_fixed_length_string<4>(m_file);
+            auto id = read_fixed_length_string<4>(file);
 
             if (id != "PWAD" && id != "IWAD") {
                 std::cerr << "WAD does not contain PWAD or IWAD header. Things might not work properly." << std::endl;;
             }
 
             int numlumps;
-            m_file.read(reinterpret_cast<char *>(&numlumps), sizeof(int));
+            file.read(reinterpret_cast<char *>(&numlumps), sizeof(int));
 
             int infotableofs;
-            m_file.read(reinterpret_cast<char *>(&infotableofs), sizeof(int));
+            file.read(reinterpret_cast<char *>(&infotableofs), sizeof(int));
 
-            m_file.seekg(infotableofs);
+            // C++ I/O sucks.
+            file.seekg(0, std::ios::end);
+            auto file_size = file.tellg();
+            file.seekg(0, std::ios::beg);
 
-            std::vector<impl::DirectoryEntry> directory;
+            auto data_offset = m_data.size();
+            m_data.reserve(m_data.size() + file_size);
+            std::vector<uint8_t> contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
+            m_data.insert(m_data.end(), contents.begin(), contents.end());
+
+            file.seekg(infotableofs);
+
             for (int i = 0; i < numlumps; ++i) {
-                m_directory.push_back(read_directory_entry(m_file));
+                m_directory.push_back(read_directory_entry(file, static_cast<int>(data_offset)));
             }
         }
     }
 
     std::optional<int> Wad::get_lump_number(std::string_view name) const {
-        for (auto i = 0; i < m_directory.size(); ++i) {
+        for (auto i = static_cast<int>(m_directory.size()-1); i >= 0 ; --i) {
             if (m_directory[i].name == name) {
                 return i;
             }
@@ -65,14 +75,14 @@ namespace wad {
     Lump Wad::get_lump(int number) {
         auto &entry = m_directory[number];
 
-        m_file.seekg(entry.offset);
         Lump lump;
         lump.name = entry.name;
         lump.number = number;
 
         if (entry.size > 0) {
-            lump.data.resize(entry.size);
-            m_file.read(reinterpret_cast<char *>(lump.data.data()), entry.size);
+            // TODO: Change to span when using C++20
+            lump.data.reserve(entry.size);
+            lump.data.insert(lump.data.begin(), m_data.begin() + entry.offset, m_data.begin() + entry.offset + entry.size);
         }
 
 
