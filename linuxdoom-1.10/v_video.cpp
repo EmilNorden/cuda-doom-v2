@@ -109,7 +109,7 @@ static const char *glsl_drawtex_fragshader_src =
 #include <stdlib.h>
 
 // Each screen is [SCREENWIDTH*SCREENHEIGHT]; 
-byte *screens[5];
+byte *screens[SCREEN_COUNT];
 
 int dirtybox[4];
 
@@ -716,9 +716,9 @@ void V_Init(void) {
 
     // stick these in low dos memory on PCs
 
-    base = I_AllocLow(SCREENWIDTH * SCREENHEIGHT * 5);
+    base = I_AllocLow(SCREENWIDTH * SCREENHEIGHT * SCREEN_COUNT);
 
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < SCREEN_COUNT; i++) {
         screens[i] = base + i * SCREENWIDTH * SCREENHEIGHT;
         pixels[i] = (GLubyte *) malloc(SCREENWIDTH * SCREENHEIGHT);
         memset(pixels[i], 0x00, SCREENWIDTH * SCREENHEIGHT);
