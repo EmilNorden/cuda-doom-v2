@@ -59,8 +59,11 @@ static void bw_write32(binary_writer_t *writer, uint32_t value) {
         bw_expand_capacity(writer);
     }
 
-    auto *write_ptr = (uint32_t *) &writer->data[writer->write_position];
-    *write_ptr = value;
+    auto *write_ptr = &writer->data[writer->write_position];
+    *write_ptr++ = value & 0xFF;
+    *write_ptr++ = (value >> 8) & 0xFF;
+    *write_ptr++ = (value >> 16) & 0xFF;
+    *write_ptr++ = (value >> 24) & 0xFF;
     writer->write_position += WORD_SIZE;
 }
 
@@ -70,8 +73,9 @@ static void bw_write16(binary_writer_t *writer, uint16_t value) {
         bw_expand_capacity(writer);
     }
 
-    auto *write_ptr = (uint16_t *) &writer->data[writer->write_position];
-    *write_ptr = value;
+    auto *write_ptr = &writer->data[writer->write_position];
+    *write_ptr++ = value & 0xFF;
+    *write_ptr++ = (value >> 8) & 0xFF;
     writer->write_position += WORD_SIZE;
 }
 

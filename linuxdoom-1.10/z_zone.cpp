@@ -27,7 +27,6 @@ static const char
 #include "z_zone.h"
 #include "i_system.h"
 
-
 //
 // ZONE MEMORY ALLOCATION
 //
@@ -144,7 +143,6 @@ void Z_Free(void *ptr) {
 //
 #define MINFRAGMENT        64
 
-
 void *
 Z_Malloc
         (int size,
@@ -156,7 +154,8 @@ Z_Malloc
     memblock_t *newblock;
     memblock_t *base;
 
-    size = (size + 3) & ~3;
+    // Align to 8 byte boundary
+    size = (size + 7) & ~7;
 
     // scan through the block list,
     // looking for the first free block
