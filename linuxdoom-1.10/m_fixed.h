@@ -23,6 +23,7 @@
 #ifndef __M_FIXED__
 #define __M_FIXED__
 
+#include <limits>
 
 #ifdef __GNUG__
 #pragma interface
@@ -40,6 +41,25 @@ typedef int fixed_t;
 fixed_t FixedMul	(fixed_t a, fixed_t b);
 fixed_t FixedDiv	(fixed_t a, fixed_t b);
 fixed_t FixedDiv2	(fixed_t a, fixed_t b);
+
+template <typename T>
+fixed_t FixedFromInteger(T value) {
+    bool is_negative = value < 0;
+    fixed_t result = abs(value) << FRACBITS;
+
+    // Special case for extreme value
+    if(value == std::numeric_limits<short>::min()) {
+        // 32768 left shifted by 16 would flip the sign bit and give us a negative value already.
+        // Trying to negate this would be UB.
+        return result;
+    }
+
+    if(is_negative) {
+        result = -result;
+    }
+
+    return result;
+}
 
 
 

@@ -764,6 +764,16 @@ void A_SPosAttack(player_t* player, pspdef_t* psp, mobj_t* actor) {
     }
 }
 
+int signed_left_shift(int value, unsigned int shift) {
+    bool is_negative = value < 0;
+    auto result = abs(value) << shift;
+    if(is_negative) {
+        result = -result;
+    }
+
+    return result;
+}
+
 void A_CPosAttack(player_t* player, pspdef_t* psp, mobj_t* actor) {
     int angle;
     int bangle;
@@ -778,7 +788,7 @@ void A_CPosAttack(player_t* player, pspdef_t* psp, mobj_t* actor) {
     bangle = actor->angle;
     slope = P_AimLineAttack(actor, bangle, MISSILERANGE);
 
-    angle = bangle + ((P_Random() - P_Random()) << 20);
+    angle = bangle + signed_left_shift(P_Random() - P_Random(), 20);
     damage = ((P_Random() % 5) + 1) * 3;
     P_LineAttack(actor, angle, MISSILERANGE, slope, damage);
 }

@@ -538,7 +538,7 @@ static GLuint indices[] = {  // Note that we start from 0!
 
 static void init_sdl_window(boolean fullscreen) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
@@ -720,11 +720,11 @@ void V_Init(void) {
 
     for (i = 0; i < SCREEN_COUNT; i++) {
         screens[i] = base + i * SCREENWIDTH * SCREENHEIGHT;
-        pixels[i] = (GLubyte *) malloc(SCREENWIDTH * SCREENHEIGHT);
+        pixels[i] = (GLubyte *) aligned_alloc(4, SCREENWIDTH * SCREENHEIGHT);
         memset(pixels[i], 0x00, SCREENWIDTH * SCREENHEIGHT);
     }
 
-    mask = (GLubyte *) malloc(SCREENWIDTH * SCREENHEIGHT);
+    mask = (GLubyte *) aligned_alloc(4, SCREENWIDTH * SCREENHEIGHT);
     memset(mask, 0x00, SCREENWIDTH * SCREENHEIGHT);
 
     init_sdl_window(false);
@@ -755,7 +755,6 @@ void update_frame_texture(void) {
                         GL_RGBA_INTEGER_EXT,
                         GL_UNSIGNED_BYTE,
                         pixels);*/
-
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, frame_texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, pixels[0]);
@@ -763,7 +762,7 @@ void update_frame_texture(void) {
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, mask_texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 320, 200, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, mask);
-    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI_EXT, 320, 200, 0, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_BYTE, pixels);
+    //// glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI_EXT, 320, 200, 0, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_BYTE, pixels);
 
     R_CheckForGlErrors();
 }

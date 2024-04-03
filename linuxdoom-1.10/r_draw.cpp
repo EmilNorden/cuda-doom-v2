@@ -675,8 +675,9 @@ void R_DrawSpanLow(void) {
         //  while scale is adjusted appropriately.
         *dest++ = ds_colormap[ds_source[spot]];
         *dest++ = ds_colormap[ds_source[spot]];
-        *dest_mask++ = 0xFF;
-        *dest_mask++ = 0xFF;
+        //*dest_mask++ = 0xFF;
+        //*dest_mask++ = 0xFF;
+
 
         xfrac += ds_xstep;
         yfrac += ds_ystep;

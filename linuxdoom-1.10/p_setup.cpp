@@ -140,8 +140,8 @@ void P_LoadVertexes(int lump) {
     // Copy and convert vertex coordinates,
     // internal representation as fixed.
     for (i = 0; i < numvertexes; i++, li++, ml++) {
-        li->x = SHORT(ml->x) << FRACBITS;
-        li->y = SHORT(ml->y) << FRACBITS;
+        li->x = FixedFromInteger(SHORT(ml->x));
+        li->y = FixedFromInteger(SHORT(ml->y));
     }
 
     // Free buffer memory.
@@ -172,8 +172,8 @@ void P_LoadSegs(int lump) {
         li->v1 = &vertexes[SHORT(ml->v1)];
         li->v2 = &vertexes[SHORT(ml->v2)];
 
-        li->angle = (SHORT(ml->angle)) << 16;
-        li->offset = (SHORT(ml->offset)) << 16;
+        li->angle = FixedFromInteger(SHORT(ml->angle));
+        li->offset = FixedFromInteger(SHORT(ml->offset));
         linedef = SHORT(ml->linedef);
         ldef = &lines[linedef];
         li->linedef = ldef;
@@ -233,8 +233,8 @@ void P_LoadSectors(int lump) {
     ms = (mapsector_t *) data;
     ss = sectors;
     for (i = 0; i < numsectors; i++, ss++, ms++) {
-        ss->floorheight = SHORT(ms->floorheight) << FRACBITS;
-        ss->ceilingheight = SHORT(ms->ceilingheight) << FRACBITS;
+        ss->floorheight = FixedFromInteger(SHORT(ms->floorheight));
+        ss->ceilingheight = FixedFromInteger(SHORT(ms->ceilingheight));
         ss->floorpic = R_FlatNumForName(ms->floorpic);
         ss->ceilingpic = R_FlatNumForName(ms->ceilingpic);
         ss->lightlevel = SHORT(ms->lightlevel);
@@ -266,14 +266,14 @@ void P_LoadNodes(int lump) {
     no = nodes;
 
     for (i = 0; i < numnodes; i++, no++, mn++) {
-        no->x = SHORT(mn->x) << FRACBITS;
-        no->y = SHORT(mn->y) << FRACBITS;
-        no->dx = SHORT(mn->dx) << FRACBITS;
-        no->dy = SHORT(mn->dy) << FRACBITS;
+        no->x = FixedFromInteger(SHORT(mn->x));
+        no->y = FixedFromInteger(SHORT(mn->y));
+        no->dx = FixedFromInteger(SHORT(mn->dx));
+        no->dy = FixedFromInteger(SHORT(mn->dy));
         for (j = 0; j < 2; j++) {
             no->children[j] = SHORT(mn->children[j]);
             for (k = 0; k < 4; k++)
-                no->bbox[j][k] = SHORT(mn->bbox[j][k]) << FRACBITS;
+                no->bbox[j][k] = FixedFromInteger(SHORT(mn->bbox[j][k]));
         }
     }
 
@@ -448,8 +448,8 @@ void P_LoadBlockMap(int lump) {
     for (i = 0; i < count; i++)
         blockmaplump[i] = SHORT(blockmaplump[i]);
 
-    bmaporgx = blockmaplump[0] << FRACBITS;
-    bmaporgy = blockmaplump[1] << FRACBITS;
+    bmaporgx = FixedFromInteger(blockmaplump[0]);
+    bmaporgy = FixedFromInteger(blockmaplump[1]);
     bmapwidth = blockmaplump[2];
     bmapheight = blockmaplump[3];
 

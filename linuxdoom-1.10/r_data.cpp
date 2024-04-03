@@ -387,15 +387,17 @@ R_GetColumn
 
 #include <errno.h>
 
+short R_BytesToShort(const byte* data) {
+    return SHORT(data[0] | (data[1] << 8));
+}
+
 //
 // R_InitTextures
 // Initializes the texture list
 //  with the textures from the world map.
 //
 void R_InitTextures(void) {
-    maptexture_t *mtexture;
     texture_t *texture;
-    mappatch_t *mpatch;
     texpatch_t *patch;
 
     int i;
@@ -497,25 +499,40 @@ void R_InitTextures(void) {
         if (offset > maxoff)
             I_Error("R_InitTextures: bad texture directory");
 
-        mtexture = (maptexture_t *) ((byte *) maptex + offset);
+        byte* texture_data = (byte*)maptex + offset;
+        constexpr size_t name_offset = 0x00;
+        constexpr size_t width_offset = 0x0C;
+        constexpr size_t height_offset = 0x0E;
+        constexpr size_t patchcount_offset = 0x14;
+        constexpr size_t patch_offset = 0x16;
+        short texture_width = R_BytesToShort(&texture_data[width_offset]);
+        short texture_height = R_BytesToShort(&texture_data[height_offset]);
+        short texture_patchcount = R_BytesToShort(&texture_data[patchcount_offset]);
 
+        //mtexture = (maptexture_t *) ((byte *) maptex + offset);
+        printf("init textures %d\n", i);
         texture = textures[i] =
                 (texture_t*)Z_Malloc(sizeof(texture_t)
-                         + sizeof(texpatch_t) * (SHORT(mtexture->patchcount) - 1),
+                         + sizeof(texpatch_t) * (texture_patchcount - 1),
                          PU_STATIC, 0);
 
-        texture->width = SHORT(mtexture->width);
-        texture->height = SHORT(mtexture->height);
-        texture->patchcount = SHORT(mtexture->patchcount);
+        texture->width = texture_width;
+        texture->height = texture_height;
+        texture->patchcount = texture_patchcount;
 
-        memcpy(texture->name, mtexture->name, sizeof(texture->name));
-        mpatch = &mtexture->patches[0];
+        memcpy(texture->name, &texture_data[name_offset], sizeof(texture->name));
+        //mpatch = &mtexture->patches[0];
         patch = &texture->patches[0];
+        for (j = 0; j < texture->patchcount; j++, patch++) {
+            constexpr size_t originx_offset = 0x00;
+            constexpr size_t originy_offset = 0x02;
+            constexpr size_t patch_number_offset = 0x04;
 
-        for (j = 0; j < texture->patchcount; j++, mpatch++, patch++) {
-            patch->originx = SHORT(mpatch->originx);
-            patch->originy = SHORT(mpatch->originy);
-            patch->patch = patchlookup[SHORT(mpatch->patch)];
+            size_t current_patch_offset = patch_offset + (j * sizeof(mappatch_t));
+
+            patch->originx = R_BytesToShort(&texture_data[current_patch_offset + originx_offset]);
+            patch->originy = R_BytesToShort(&texture_data[current_patch_offset + originy_offset]);
+            patch->patch = patchlookup[R_BytesToShort(&texture_data[current_patch_offset + patch_number_offset])];
             if (patch->patch == -1) {
                 I_Error("R_InitTextures: Missing patch in texture %s",
                         texture->name);
@@ -593,9 +610,9 @@ void R_InitSpriteLumps(void) {
             printf(".");
 
         patch = (patch_t*)W_CacheLumpNum(firstspritelump + i, PU_CACHE);
-        spritewidth[i] = SHORT(patch->width) << FRACBITS;
-        spriteoffset[i] = SHORT(patch->leftoffset) << FRACBITS;
-        spritetopoffset[i] = SHORT(patch->topoffset) << FRACBITS;
+        spritewidth[i] = FixedFromInteger(SHORT(patch->width));
+        spriteoffset[i] = FixedFromInteger(SHORT(patch->leftoffset));
+        spritetopoffset[i] = FixedFromInteger(SHORT(patch->topoffset));
     }
 }
 

@@ -614,9 +614,11 @@ void P_SpawnPlayer(mapthing_t *mthing) {
     if (p->playerstate == PST_REBORN)
         G_PlayerReborn(mthing->type - 1);
 
-    x = mthing->x << FRACBITS;
-    y = mthing->y << FRACBITS;
+
+    x = FixedFromInteger(mthing->x);
+    y = FixedFromInteger(mthing->y);
     z = ONFLOORZ;
+
     mobj = P_SpawnMobj(x, y, z, MT_PLAYER);
 
     // set color translations for player sprites
@@ -722,8 +724,10 @@ void P_SpawnMapThing(mapthing_t *mthing) {
     }
 
     // spawn it
-    x = mthing->x << FRACBITS;
-    y = mthing->y << FRACBITS;
+
+    x = FixedFromInteger(mthing->x);
+    y = FixedFromInteger(mthing->y);
+
 
     if (mobjinfo[i].flags & MF_SPAWNCEILING)
         z = ONCEILINGZ;
@@ -740,7 +744,7 @@ void P_SpawnMapThing(mapthing_t *mthing) {
     if (mobj->flags & MF_COUNTITEM)
         totalitems++;
 
-    mobj->angle = ANG45 * (mthing->angle / 45);
+    mobj->angle = (unsigned)ANG45 * (mthing->angle / 45);
     if (mthing->options & MTF_AMBUSH)
         mobj->flags |= MF_AMBUSH;
 
