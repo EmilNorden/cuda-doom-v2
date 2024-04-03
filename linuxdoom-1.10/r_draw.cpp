@@ -116,7 +116,6 @@ void R_DrawColumn(void) {
     // Zero length, column does not exceed a pixel.
     if (count < 0)
         return;
-
 #ifdef RANGECHECK
     if ((unsigned) dc_x >= SCREENWIDTH
         || dc_yl < 0
@@ -226,7 +225,6 @@ void R_DrawColumnLow(void) {
     // Zero length.
     if (count < 0)
         return;
-
 #ifdef RANGECHECK
     if ((unsigned) dc_x >= SCREENWIDTH
         || dc_yl < 0
@@ -667,14 +665,22 @@ void R_DrawSpanLow(void) {
     dest = ylookup[ds_y] + columnofs[ds_x1];
     dest_mask = ymasklookup[ds_y] + columnofs[ds_x1];
 
-
+    auto dest_end = pixels[0]+(SCREENHEIGHT*SCREENWIDTH);
+    /*auto dest_remainder = dest_end - dest;
+    count = std::min(ds_x2 - ds_x1, ((int)dest_remainder / 2)-1);*/
     count = ds_x2 - ds_x1;
     do {
         spot = ((yfrac >> (16 - 6)) & (63 * 64)) + ((xfrac >> 16) & 63);
         // Lowres/blocky mode does it twice,
         //  while scale is adjusted appropriately.
-        *dest++ = ds_colormap[ds_source[spot]];
-        *dest++ = ds_colormap[ds_source[spot]];
+        if(dest < dest_end) {
+            *dest++ = ds_colormap[ds_source[spot]];
+        }
+
+        if(dest < dest_end) {
+            *dest++ = ds_colormap[ds_source[spot]];
+        }
+
         //*dest_mask++ = 0xFF;
         //*dest_mask++ = 0xFF;
 

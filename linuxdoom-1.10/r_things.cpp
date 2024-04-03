@@ -376,7 +376,6 @@ R_DrawVisSprite
     fixed_t frac;
     patch_t *patch;
 
-
     patch = (patch_t *) W_CacheLumpNum(vis->patch + firstspritelump, PU_CACHE);
 
     dc_colormap = vis->colormap;

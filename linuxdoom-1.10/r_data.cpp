@@ -508,9 +508,7 @@ void R_InitTextures(void) {
         short texture_width = R_BytesToShort(&texture_data[width_offset]);
         short texture_height = R_BytesToShort(&texture_data[height_offset]);
         short texture_patchcount = R_BytesToShort(&texture_data[patchcount_offset]);
-
-        //mtexture = (maptexture_t *) ((byte *) maptex + offset);
-        printf("init textures %d\n", i);
+        
         texture = textures[i] =
                 (texture_t*)Z_Malloc(sizeof(texture_t)
                          + sizeof(texpatch_t) * (texture_patchcount - 1),
